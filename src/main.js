@@ -14,6 +14,15 @@ import * as reports from './views/reports.js';
 import * as games from './views/games.js';
 import * as train from './views/train.js';
 import * as athletes from './views/athletes.js';
+import * as sync from './sync.js';
+
+const SYNC_LABEL = { signedout: 'Sem sincronização', syncing: 'A sincronizar…', ok: 'Sincronizado', offline: 'Sem internet', error: 'Erro a sincronizar' };
+function renderSyncChip(s) {
+  const chip = $('syncChip');
+  chip.hidden = s.state === 'off' || !db.meta.started;
+  chip.className = 'syncchip ' + s.state;
+  chip.innerHTML = `<i></i>${SYNC_LABEL[s.state] || ''}`;
+}
 
 const GAME_VIEWS = ['live', 'box', 'shots', 'lineups'];
 const VIEWS = ['games', ...GAME_VIEWS, 'train', 'atl'];
@@ -43,6 +52,7 @@ function renderHeader(g, st) {
     if (GAME_VIEWS.includes(t.dataset.view)) t.hidden = !g;
   });
   $('sampleChip').hidden = !db.meta.sample;
+  renderSyncChip(sync.status);
   $('tabs').hidden = !db.meta.started;
   const gc = $('gameChip');
   if (g && GAME_VIEWS.includes(UI.view)) {
@@ -88,6 +98,12 @@ function initShell() {
     g.q = +b.dataset.q; g.clock = g.q > 4 ? 300 : 600; UI.running = false; save('games'); render();
   });
   $('clock').addEventListener('click', () => { if (game()) { UI.running = !UI.running; render(); } });
+  $('syncChip').addEventListener('click', () => { UI.view = 'atl'; UI.atl.sub = 'dados'; render(); });
+  sync.onStatus(s => {
+    renderSyncChip(s);
+    const typing = document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+    if (UI.view === 'atl' && UI.atl.sub === 'dados' && !typing) athletes.render();
+  });
   setInterval(() => {
     const g = game();
     if (!UI.running || !g) return;
@@ -102,5 +118,6 @@ async function start() {
   initShell();
   live.init(); reports.init(); games.init(); train.init(); athletes.init();
   render();
+  sync.init();
 }
 start();

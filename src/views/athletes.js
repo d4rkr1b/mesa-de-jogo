@@ -4,6 +4,7 @@ import { POS, PS, posCourt } from '../court.js';
 import { chart, attachTips } from '../chart.js';
 import { compute, efg, playedIn, blank } from '../stats.js';
 import { defaultExercises } from '../sample.js';
+import * as sync from '../sync.js';
 
 const POSITIONS = ['Base', 'Base/Extremo', 'Extremo', 'Extremo/Poste', 'Poste'];
 const STATUS = { 'Disponível': 'good', 'Condicionada': 'warn', 'Lesionada': 'bad', 'Indisponível': 'warn' };
@@ -20,7 +21,7 @@ function trainDates(pid) {
 
 export function render() {
   const A = UI.atl;
-  const subs = [['plantel', 'Plantel e fichas'], ['treinos', 'Treinos realizados'], ['dados', 'Cópia de segurança']];
+  const subs = [['plantel', 'Plantel e fichas'], ['treinos', 'Treinos realizados'], ['dados', 'Conta e dados']];
   const seg = `<div class="rowline" style="margin:0"><div class="seg big-seg">${subs.map(([k, v]) => `<button data-a="sub" data-v="${k}" aria-pressed="${A.sub === k}">${v}</button>`).join('')}</div></div>`;
   $('v-atl').innerHTML = seg + (A.sub === 'plantel' ? plantelView() : A.sub === 'treinos' ? treinosView() : dadosView());
 }
@@ -183,17 +184,39 @@ function treinosView() {
       <p class="legend">Toca num treino para ver o detalhe por atleta. "Editar" abre esse exercício e essa data no separador Treino. Toca numa atleta para abrir a ficha dela.</p></div>`;
 }
 
+function syncCard() {
+  if (!sync.configured) return '';
+  const s = sync.status;
+  if (s.state === 'signedout') {
+    return `<div class="card datacard"><h2>Sincronização</h2>
+      <p>Entra com a tua conta para guardar tudo na nuvem e teres os mesmos dados no iPad e no PC. A app continua a funcionar sem internet e envia as alterações quando houver ligação.</p>
+      <div class="loginform">
+        <label class="field"><span class="label">Email</span><input id="semail" type="email" autocomplete="username" autocapitalize="off" inputmode="email"></label>
+        <label class="field"><span class="label">Palavra-passe</span><input id="spass" type="password" autocomplete="current-password"></label>
+        <button class="btn-sm go" data-a="login" style="height:46px">Entrar</button>
+      </div></div>`;
+  }
+  const when = s.lastOk ? new Date(s.lastOk).toLocaleString('pt-PT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'ainda não';
+  const line = { ok: 'Tudo sincronizado.', syncing: 'A sincronizar…', offline: 'Sem internet. As alterações ficam guardadas aqui e são enviadas quando voltar a ligação.', error: 'Houve um erro na última tentativa. A app volta a tentar sozinha.' }[s.state] || '';
+  return `<div class="card datacard"><h2>Sincronização</h2>
+    <p>Sessão iniciada como <b>${esc(s.email)}</b>. ${line}</p>
+    <p class="hint">Última sincronização: ${when}${s.state === 'error' && s.message ? ` · ${esc(s.message)}` : ''}</p>
+    <div class="btnrow"><button class="btn-sm go" data-a="syncnow">Sincronizar agora</button>
+    <button class="btn-ghost ${isConfirming('logout') ? 'confirm' : ''}" data-a="logout">${isConfirming('logout') ? 'Confirmar: terminar sessão?' : 'Terminar sessão'}</button></div></div>`;
+}
+
 function dadosView() {
   const counts = `${db.roster.length} atletas · ${db.games.length} jogos · ${T().series.length} séries de treino`;
-  return `<div class="card datacard"><h2>Onde estão os dados</h2>
-      <p>Tudo o que registas fica guardado <b>neste dispositivo</b> e funciona sem internet. Para não perderes nada, exporta uma cópia de vez em quando (por exemplo, depois de cada jogo) e guarda-a no iCloud Drive ou no email.</p>
+  const signedIn = sync.configured && sync.status.state !== 'signedout';
+  return syncCard() + `<div class="card datacard"><h2>Cópia de segurança</h2>
+      <p>${signedIn ? 'Os dados estão neste dispositivo e na nuvem.' : 'Tudo o que registas fica guardado <b>neste dispositivo</b> e funciona sem internet.'} Podes também exportar uma cópia para um ficheiro (por exemplo, no fim da época) e guardá-la no iCloud Drive ou no email.</p>
       <p class="hint">${counts}</p>
       <div class="btnrow"><button class="btn-sm go" data-a="export">Exportar cópia (.json)</button>
       <label class="btn-sm" style="cursor:pointer">Importar cópia…<input id="importFile" type="file" accept="application/json,.json" hidden></label></div>
     </div>
     ${db.meta.sample ? `<div class="card datacard"><h2>Dados de exemplo</h2><p>A app tem dados inventados para experimentares. Quando quiseres usar a sério, apaga-os e começa com o teu plantel.</p>
       <button class="btn-ghost ${isConfirming('clearSample') ? 'confirm' : ''}" data-a="clearSample">${isConfirming('clearSample') ? 'Confirmar: apagar exemplos?' : 'Apagar exemplos e começar do zero'}</button></div>` : ''}
-    <div class="card datacard"><h2>Apagar tudo</h2><p>Apaga atletas, jogos e treinos deste dispositivo. Exporta uma cópia antes, se precisares.</p>
+    <div class="card datacard"><h2>Apagar tudo</h2><p>Apaga atletas, jogos e treinos deste dispositivo${signedIn ? ' <b>e da nuvem</b>, porque a sincronização está ligada' : ''}. Exporta uma cópia antes, se precisares.</p>
       <button class="btn-ghost ${isConfirming('wipe') ? 'confirm' : ''}" data-a="wipe">${isConfirming('wipe') ? 'Confirmar: apagar tudo?' : 'Apagar tudo'}</button></div>`;
 }
 
@@ -245,6 +268,18 @@ export function init() {
     else if (a === 'open-ficha') { A.sub = 'plantel'; A.sel = v; A.editing = null; }
     else if (a === 'open-game') { db.meta.currentGameId = v; save('meta'); UI.view = 'box'; }
     else if (a === 'export') { exportBackup(); return; }
+    else if (a === 'login') {
+      const email = $('semail').value, pass = $('spass').value;
+      if (!email || !pass) { toast('Escreve o email e a palavra-passe'); return; }
+      b.disabled = true; b.textContent = 'A entrar…';
+      sync.login(email, pass).then(err => {
+        if (err) { toast(err); b.disabled = false; b.textContent = 'Entrar'; return; }
+        toast('Sessão iniciada. A sincronizar…'); app.render();
+      });
+      return;
+    }
+    else if (a === 'syncnow') { sync.syncNow(); return; }
+    else if (a === 'logout') { if (!confirmTap('logout', app.render)) return; sync.logout().then(() => { toast('Sessão terminada. Os dados continuam neste dispositivo.'); app.render(); }); return; }
     else if (a === 'clearSample') { if (!confirmTap('clearSample', app.render)) return; startEmpty(); toast('Exemplos apagados. Começa por adicionar o plantel.'); }
     else if (a === 'wipe') { if (!confirmTap('wipe', app.render)) return; startEmpty(); toast('Dados apagados'); }
     else return;

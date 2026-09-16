@@ -29,8 +29,13 @@ export const UI = {
 /* o render é definido no main.js; as vistas chamam app.render() depois de mudar algo */
 export const app = { render: () => {} };
 
+/* a sincronização regista-se aqui para saber quando e o quê mudou */
+export const changes = { at: {}, listeners: [] };
+
 const timers = {};
 export function save(key) {
+  changes.at[key] = Date.now();
+  changes.listeners.forEach(fn => fn(key));
   clearTimeout(timers[key]);
   timers[key] = setTimeout(() => write(key), 250);
 }

@@ -280,3 +280,10 @@
   .datacard p{margin:0 0 10px;line-height:1.5;max-width:70ch;color:var(--mute)}
   .btnrow{display:flex;gap:8px;flex-wrap:wrap}
   @media (max-width:560px){ .welcome .choices{grid-template-columns:1fr} .gamechip b{max-width:120px} }
+  .syncchip{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:4px 10px;white-space:nowrap}
+  .syncchip i{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+  .syncchip.ok i{background:var(--made)}
+  .syncchip.syncing i,.syncchip.signedout i{background:var(--accent)}
+  .syncchip.error i{background:var(--miss)}
+  .loginform{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end;max-width:720px}
+  @media (max-width:560px){ .loginform{grid-template-columns:1fr} }

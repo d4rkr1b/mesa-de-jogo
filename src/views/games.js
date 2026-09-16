@@ -3,6 +3,7 @@ import { $, esc, uid, toast, fmtDate, today, pct, confirmTap, isConfirming } fro
 import { compute, efg, ts } from '../stats.js';
 import { sampleRoster, sampleGames, sampleTraining } from '../sample.js';
 import { startEmpty } from './athletes.js';
+import * as sync from '../sync.js';
 
 const COMPS = ['Sub18', 'Sub22'];
 const scoreOf = g => { const st = compute(g.events); return { us: st.team.pts, them: st.opp, st }; };
@@ -19,8 +20,9 @@ function welcome() {
     <p>Estatísticas de jogo ao vivo, exercícios de lançamento e fichas das atletas. Tudo fica guardado neste dispositivo e funciona sem internet no pavilhão.</p>
     <div class="choices">
       <button class="choice primary" data-g="start-empty"><b>Começar a sério</b><span>Começa vazia. Adicionas o plantel e ficam já criados os exercícios 12/13/14, Séries de 10 e 8+6.</span></button>
-      <button class="choice" data-g="start-sample"><b>Experimentar com exemplos</b><span>Plantel, 3 jogos e 6 semanas de treinos inventados. Podes apagá-los depois em Atletas → Cópia de segurança.</span></button>
+      <button class="choice" data-g="start-sample"><b>Experimentar com exemplos</b><span>Plantel, 3 jogos e 6 semanas de treinos inventados. Podes apagá-los depois em Atletas → Conta e dados.</span></button>
     </div>
+    ${sync.configured ? '<button class="choice" data-g="start-login"><b>Já tenho conta</b><span>Entra com o teu email para trazer os dados que já estão na nuvem (por exemplo, os do iPad).</span></button>' : ''}
   </div>`;
 }
 
@@ -103,6 +105,7 @@ export function init() {
     const b = e.target.closest('[data-g]'); if (!b) return;
     const G = UI.games, a = b.dataset.g, v = b.dataset.v;
     if (a === 'start-empty') { startEmpty(); UI.view = 'atl'; toast('Começa por adicionar as atletas do plantel'); }
+    else if (a === 'start-login') { startEmpty(); UI.view = 'atl'; Object.assign(UI.atl, { sub: 'dados', editing: null }); }
     else if (a === 'start-sample') {
       replaceAll({ roster: sampleRoster(), games: sampleGames(), training: sampleTraining(), meta: { started: true, sample: true, currentGameId: 'g3' } });
     }
