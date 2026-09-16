@@ -1,0 +1,23 @@
+{
+  "name": "mesa-de-jogo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Estatísticas de jogo e treino de basket, feita para o iPad.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "icons": "pwa-assets-generator"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "idb-keyval": "^6.3.0"
+  },
+  "devDependencies": {
+    "@vite-pwa/assets-generator": "^1.0.4",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^1.3.0"
+  }
+}

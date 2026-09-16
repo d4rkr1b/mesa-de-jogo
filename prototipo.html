@@ -1,0 +1,1281 @@
+<title>Mesa de Jogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#0F1216; --panel:#171B21; --raise:#212631; --raise2:#2A303C; --line:#2F3541;
+    --ink:#ECE8E1; --mute:#8C95A4; --faint:#5A6270;
+    --accent:#F2A541; --accent-ink:#1A1206;
+    --made:#3FBF7F; --miss:#EF5B5B;
+    --floor:#172124; --paint:#1C2B2F; --court-line:rgba(236,232,225,.55);
+    --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+    --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+    color-scheme:dark;
+  }
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;-webkit-tap-highlight-color:transparent}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .app{height:100%;display:flex;flex-direction:column;padding-inline:16px;gap:10px;padding-block:10px;box-sizing:border-box}
+
+  /* Scoreboard */
+  .board{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 18px}
+  .team{display:flex;align-items:center;gap:14px;min-width:0}
+  .team.them{justify-content:flex-end;text-align:right}
+  .tname{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  .score{font-family:var(--display);font-weight:700;font-size:48px;line-height:1;font-variant-numeric:tabular-nums}
+  .tfouls{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+  .pips{display:flex;gap:3px}
+  .pip{width:9px;height:9px;border-radius:50%;border:1px solid var(--faint)}
+  .pip.on{background:var(--mute);border-color:var(--mute)}
+  .pip.on.warn{background:var(--miss);border-color:var(--miss)}
+  .bonus{color:var(--miss);font-weight:600}
+  .mid{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .qsel{display:flex;gap:4px}
+  .qsel button{font-family:var(--display);font-weight:600;font-size:14px;min-width:34px;height:26px;border-radius:6px;background:var(--raise);color:var(--mute)}
+  .qsel button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+  .clock{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;font-variant-numeric:tabular-nums;padding:2px 14px;border-radius:8px;display:flex;align-items:center;gap:8px}
+  .clock .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  .clock.run .dot{background:var(--made)}
+
+  /* Tabs */
+  .tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tabs .tab{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.04em;text-transform:uppercase;padding:7px 14px;border-radius:8px;color:var(--mute)}
+  .tabs .tab[aria-selected="true"]{background:var(--raise);color:var(--ink)}
+  .tabs .spacer{flex:1}
+  .chip-sample{font-size:12px;color:var(--accent);border:1px dashed rgba(242,165,65,.5);border-radius:99px;padding:3px 10px}
+  .btn-ghost{font-size:13px;color:var(--mute);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+  .btn-ghost.confirm{color:var(--miss);border-color:var(--miss)}
+
+  main{flex:1;min-height:0}
+  .live{display:grid;grid-template-columns:232px minmax(0,1fr) 312px;gap:10px;height:100%}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .colhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 6px}
+  .label{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+
+  /* Roster */
+  .rlist{overflow:auto;padding:0 8px 10px;display:flex;flex-direction:column;gap:4px}
+  .rgroup{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:8px 4px 2px}
+  .pl{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;text-align:left;background:var(--raise);border:2px solid transparent;min-height:50px}
+  .pl.bench{background:transparent;color:var(--mute)}
+  .pl.sel{border-color:var(--accent)}
+  .pl.draft-in{border-color:var(--made)}
+  .pl .num{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+  .pl .nm{font-weight:600;font-size:14px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl .sub{font-size:12px;color:var(--mute)}
+  .pl .pts{font-family:var(--display);font-weight:600;font-size:20px;font-variant-numeric:tabular-nums;text-align:right}
+  .fp{display:flex;gap:2px;justify-content:flex-end;margin-top:2px}
+  .fp i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+  .fp i.on{background:var(--mute)}
+  .fp.danger i.on{background:var(--miss)}
+  .btn-sm{font-size:13px;font-weight:600;border-radius:8px;padding:6px 10px;background:var(--raise);color:var(--ink)}
+  .btn-sm.go{background:var(--made);color:#06140C}
+  .btn-sm:disabled{opacity:.4;cursor:default}
+
+  /* Court */
+  .courtcol{position:relative}
+  .courtbox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 12px 12px}
+  .courtbox svg{width:100%;height:100%;max-height:100%;display:block;touch-action:manipulation;cursor:crosshair}
+  .floor{fill:var(--floor)}
+  .paintz{fill:var(--paint)}
+  .ln{fill:none;stroke:var(--court-line);stroke-width:.5}
+  .ln.dash{stroke-dasharray:1.6 1.6}
+  .hoop{fill:none;stroke:var(--accent);stroke-width:.7}
+  .mk-made{fill:var(--made);stroke:var(--floor);stroke-width:.5}
+  .mk-miss{stroke:var(--miss);stroke-width:.9;stroke-linecap:round}
+  .old{opacity:.35}
+  .pend{fill:none;stroke:var(--accent);stroke-width:.9}
+  .pendc{fill:var(--accent)}
+  @media (prefers-reduced-motion:no-preference){ .pend{animation:pulse 1s ease-in-out infinite;transform-box:fill-box;transform-origin:center} @keyframes pulse{50%{transform:scale(1.5);opacity:.4}} }
+  .hint{font-size:12px;color:var(--mute)}
+
+  /* Panel */
+  .panel .body{padding:0 12px 10px;display:flex;flex-direction:column;gap:10px}
+  .who{display:flex;align-items:baseline;gap:8px;min-height:30px}
+  .who .n{font-family:var(--display);font-weight:700;font-size:28px;color:var(--accent);line-height:1}
+  .who .t{font-weight:600;font-size:16px}
+  .who.none .t{color:var(--mute);font-weight:500;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .act{min-height:54px;border-radius:10px;background:var(--raise);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.1}
+  .act:active{background:var(--raise2)}
+  .act b{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.02em}
+  .act small{font-size:11px;color:var(--mute)}
+  .act.ok b{color:var(--made)} .act.ko b{color:var(--miss)}
+  .act.span2{grid-column:span 2}
+  .big{min-height:70px;border-radius:12px;font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.03em}
+  .big.ok{background:var(--made);color:#06140C}
+  .big.ko{background:var(--miss);color:#1D0606}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{min-height:46px;min-width:58px;padding:4px 10px;border-radius:10px;background:var(--raise);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+  .chip b{font-family:var(--display);font-size:20px}
+  .chip small{font-size:11px;color:var(--mute)}
+  .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+  .chip[aria-pressed="true"] small{color:var(--accent-ink)}
+  .chip.wide{flex:1 1 auto}
+  .flowtitle{font-family:var(--display);font-weight:600;font-size:20px}
+  .flowtitle span{color:var(--mute);font-weight:500}
+  .opp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .opp .act b{color:var(--ink)}
+  .divider{height:1px;background:var(--line)}
+  .log{flex:1;min-height:0;overflow:auto;padding:0 12px 10px;display:flex;flex-direction:column}
+  .lr{display:grid;grid-template-columns:52px 34px 1fr auto;align-items:center;gap:6px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .lr .lt{color:var(--faint);font-variant-numeric:tabular-nums;font-size:12px}
+  .lr .ln2{font-family:var(--display);font-weight:600;font-size:16px}
+  .lr .del{color:var(--faint);font-size:18px;width:30px;height:30px;border-radius:6px}
+  .ok-t{color:var(--made)} .ko-t{color:var(--miss)}
+
+  /* Report views */
+  .view{height:100%;overflow:auto;display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+  .tile{background:var(--raise);border-radius:10px;padding:10px 12px}
+  .tile .v{font-family:var(--display);font-weight:700;font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+  .tile .k{font-size:12px;color:var(--mute);margin-top:4px}
+  h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0 0 10px;letter-spacing:.02em}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+  th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;color:var(--mute);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  tr.dim td{color:var(--faint)}
+  tr.tot td{font-weight:600;border-top:1px solid var(--mute)}
+  td .nn{font-family:var(--display);font-weight:700;font-size:16px;margin-right:6px}
+  .pos{color:var(--made)} .neg{color:var(--miss)}
+  .legend{font-size:12px;color:var(--mute);margin-top:10px;line-height:1.6}
+  .insights{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+  .insights li{display:grid;grid-template-columns:8px 1fr;gap:10px;align-items:start;line-height:1.45;max-width:75ch}
+  .insights li::before{content:"";width:8px;height:8px;border-radius:50%;margin-top:7px;background:var(--mute)}
+  .insights li.good::before{background:var(--made)} .insights li.bad::before{background:var(--miss)} .insights li.warn::before{background:var(--accent)}
+  .shotlayout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px;align-items:start}
+  .shotlayout svg{width:100%;display:block;border-radius:10px}
+  .seg{display:flex;background:var(--raise);border-radius:8px;padding:2px}
+  .seg button{font-family:var(--display);font-weight:600;font-size:14px;padding:4px 10px;border-radius:6px;color:var(--mute)}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+  .tabs .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+
+  /* Treino */
+  .trainlayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:10px;align-items:start}
+  .rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .rowline h2{margin:0}
+  input[type="date"]{font:inherit;color:var(--ink);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color-scheme:dark}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .chip.done small{color:var(--made)}
+  .chip[aria-pressed="true"].done small{color:var(--accent-ink)}
+  .drillchips .chip{align-items:flex-start;text-align:left}
+  .drillchips .chip b{font-size:16px}
+  .spotrow{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--line)}
+  .spotrow .sh{display:flex;justify-content:space-between;align-items:baseline}
+  .spotrow .sv{font-family:var(--display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+  .nums{display:flex;flex-wrap:wrap;gap:4px}
+  .nums button{width:42px;height:42px;border-radius:8px;background:var(--raise);font-family:var(--display);font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
+  .nums button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+  .chartwrap{position:relative}
+  .chartwrap svg{width:100%;display:block;overflow:visible}
+  .ax{fill:var(--mute);font-size:11px;font-family:var(--body)}
+  .gridl{stroke:var(--line);stroke-width:1}
+  .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--ground);font-size:12px;line-height:1.4;padding:6px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,calc(-100% - 12px));z-index:2}
+  .lg{display:flex;gap:16px;font-size:12px;color:var(--mute);margin:6px 0 4px}
+  .lg span{display:flex;align-items:center;gap:6px}
+  .lg i{width:18px;height:0;border-top:2px solid var(--accent)}
+  .lg i.ref{border-top:2px dashed var(--mute)}
+  .up{color:var(--made)} .down{color:var(--miss)}
+  tr.click{cursor:pointer} tr.click:hover td{background:var(--raise)}
+  tr.on td{background:var(--raise)}
+  .newex{display:flex;flex-direction:column;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);max-width:620px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field input{font:inherit;font-size:16px;color:var(--ink);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .field input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .big-seg{align-self:flex-start;flex-wrap:wrap}
+  .big-seg button{font-size:16px;padding:8px 14px}
+  .chip.addex{border:1px dashed var(--faint);background:transparent}
+  .poscourt{width:100%;max-width:520px;display:block;border-radius:10px;align-self:center}
+  .spot{fill:var(--raise2);stroke:var(--court-line);stroke-width:.6}
+  .spot.on{fill:var(--accent);stroke:var(--accent)}
+  .spotbtn{cursor:pointer}
+  .spott{font-family:var(--display);font-weight:700;font-size:6.5px;fill:var(--ink);pointer-events:none}
+  .spott.dark{fill:var(--accent-ink)}
+  .posgrid{display:grid;grid-template-columns:1fr;gap:12px}
+  .posgrid .poscourt{max-width:420px}
+  .act[aria-pressed="true"]{outline:2px solid currentColor;background:var(--raise2)}
+  .act.ok[aria-pressed="true"]{background:var(--made)} .act.ok[aria-pressed="true"] b{color:#06140C}
+  .act.ko[aria-pressed="true"]{background:var(--miss)} .act.ko[aria-pressed="true"] b{color:#1D0606}
+  th.c,td.c{text-align:center}
+  .goalt td{padding:4px 6px}
+  .gc{width:68px;height:44px;border-radius:8px;background:var(--raise);font-size:20px;font-weight:700;color:var(--faint)}
+  .gc.ok{background:var(--made);color:#06140C}
+  .gc.ko{background:rgba(239,91,91,.2);color:var(--miss)}
+  .strip{display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle}
+  .strip i{width:7px;height:14px;border-radius:2px;background:var(--line)}
+  .strip i.ok{background:var(--made)} .strip i.ko{background:var(--miss);opacity:.75}
+  @media (max-width:960px){ .posgrid{grid-template-columns:1fr} }
+  .atlayout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:10px;align-items:start}
+  .arow{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;padding:8px;border-radius:10px;text-align:left;background:var(--raise);border:2px solid transparent;min-height:54px}
+  .arow.on{border-color:var(--accent)}
+  .arow.old{background:transparent;color:var(--mute)}
+  .arow .num{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+  .arow .nm{font-weight:600;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arow .sub{font-size:12px;color:var(--mute)}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--raise2);color:var(--mute);white-space:nowrap}
+  .pill.good{background:rgba(63,191,127,.14);color:var(--made)}
+  .pill.bad{background:rgba(239,91,91,.15);color:var(--miss)}
+  .pill.warn{background:rgba(242,165,65,.14);color:var(--accent)}
+  .pill.accent{background:transparent;border:1px solid rgba(242,165,65,.45);color:var(--accent)}
+  .fform{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .fform .span2{grid-column:span 2}
+  .fform .span3{grid-column:1 / -1}
+  .field select,.field textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .field textarea{resize:vertical;line-height:1.45}
+  .field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .ficha-head{display:flex;gap:18px;align-items:center}
+  .bignum{font-family:var(--display);font-weight:700;font-size:72px;line-height:.9;color:var(--accent);font-variant-numeric:tabular-nums;min-width:84px;text-align:center}
+  .goalline{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:8px 0;border-top:1px solid var(--line)}
+  .gp{display:inline-flex;align-items:center;gap:4px}
+  .tag{display:inline-block;font-size:12px;background:var(--raise2);border-radius:6px;padding:2px 8px;margin:2px 0}
+  tr.detail td{background:var(--ground);white-space:normal;text-align:left}
+  tr.detail th{text-align:left}
+  tr.detail th .btn-sm{margin-left:6px;font-size:12px;padding:3px 8px}
+  @media (max-width:960px){ .atlayout{grid-template-columns:1fr} .fform{grid-template-columns:1fr 1fr} }
+  @media (max-width:560px){ .fform{grid-template-columns:1fr} .fform .span2{grid-column:auto} .ficha-head{flex-wrap:wrap} .bignum{font-size:56px} }
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--ground);font-weight:600;padding:10px 16px;border-radius:10px;z-index:10;max-width:calc(100% - 32px)}
+
+  @media (max-width:960px){
+    .app{height:auto;min-height:100%}
+    main{flex:none}
+    .live{grid-template-columns:1fr;height:auto}
+    .col{overflow:visible}
+    .rlist{flex-direction:row;overflow-x:auto;padding-bottom:12px}
+    .rgroup{display:none}
+    .pl{min-width:170px}
+    .courtbox svg{height:auto;max-height:70vh}
+    .log{max-height:260px}
+    .shotlayout{grid-template-columns:1fr}
+    .view{height:auto}
+    .trainlayout{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .board{grid-template-columns:1fr 1fr;padding:8px 12px}
+    .mid{grid-column:1 / -1;order:-1}
+    .score{font-size:38px}
+    .team{gap:8px;flex-wrap:wrap}
+  }
+</style>
+
+<div class="app">
+  <header class="board">
+    <div class="team us">
+      <span class="score" id="sUs">0</span>
+      <div class="tfouls"><span class="tname" id="usName">Sub22</span><div class="pips" id="fUs"></div><span id="bUs"></span></div>
+    </div>
+    <div class="mid">
+      <div class="qsel" id="qsel" role="group" aria-label="Período"></div>
+      <button class="clock" id="clock" aria-label="Iniciar ou parar relógio"><span class="dot"></span><span id="clockTxt">10:00</span></button>
+    </div>
+    <div class="team them">
+      <div class="tfouls" style="align-items:flex-end"><span class="tname">Adversário</span><div class="pips" id="fThem"></div><span id="bThem"></span></div>
+      <span class="score" id="sThem">0</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab" role="tab" data-view="live">Registo</button>
+    <button class="tab" role="tab" data-view="box">Ficha de jogo</button>
+    <button class="tab" role="tab" data-view="shots">Lançamentos</button>
+    <button class="tab" role="tab" data-view="lineups">Quintetos</button>
+    <span class="sep"></span>
+    <button class="tab" role="tab" data-view="train">Treino</button>
+    <button class="tab" role="tab" data-view="atl">Atletas</button>
+    <span class="spacer"></span>
+    <span class="seg" id="comp" role="group" aria-label="Competição"></span>
+    <span class="chip-sample" id="sampleChip">Jogo de exemplo</span>
+    <button class="btn-ghost" id="newGame">Novo jogo</button>
+  </nav>
+
+  <main>
+    <section class="live" id="v-live">
+      <aside class="col">
+        <div class="colhead"><span class="label">Plantel</span><span id="subCtl"></span></div>
+        <div class="rlist" id="roster"></div>
+      </aside>
+      <div class="col courtcol">
+        <div class="colhead"><span class="label">Campo</span><span class="hint" id="courtHint">Toca onde foi o lançamento</span></div>
+        <div class="courtbox"><svg id="court" viewBox="-2 -2 154 144" aria-label="Meio-campo: toca para registar um lançamento"></svg></div>
+      </div>
+      <aside class="col panel">
+        <div class="colhead"><span class="label">Ações</span><button class="btn-sm" data-act="undo" id="undoBtn">↶ Desfazer</button></div>
+        <div class="body" id="panel"></div>
+        <div class="divider"></div>
+        <div class="colhead"><span class="label">Últimos registos</span></div>
+        <div class="log" id="log"></div>
+      </aside>
+    </section>
+    <section class="view" id="v-box" hidden></section>
+    <section class="view" id="v-shots" hidden></section>
+    <section class="view" id="v-lineups" hidden></section>
+    <section class="view" id="v-train" hidden></section>
+    <section class="view" id="v-atl" hidden></section>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script>
+(function(){
+const RKEY = 'mesa-plantel-v1';
+const ROSTER = [
+  {id:'p4',num:4,name:'Inês Costa',pos:'Base',birth:'2005-03-12',height:171,hand:'Direita',selecao:'Seleção Sub20'},
+  {id:'p7',num:7,name:'Mariana Lopes',pos:'Extremo',birth:'2004-11-02',height:178,hand:'Direita',selecao:'Seleção Sub20',notes:'Objetivo da época: subir % de triplo de 45º acima de 38%.\nTrabalhar lançamento após drible para a esquerda.'},
+  {id:'p10',num:10,name:'Beatriz Sousa',pos:'Extremo',birth:'2006-06-21',height:176,hand:'Esquerda',selecao:'Seleção Sub18'},
+  {id:'p12',num:12,name:'Carolina Reis',pos:'Poste',birth:'2005-01-30',height:188,hand:'Direita',selecao:'Seleção Sub20'},
+  {id:'p15',num:15,name:'Leonor Matos',pos:'Poste',birth:'2007-09-08',height:185,hand:'Direita',selecao:'Seleção Sub18'},
+  {id:'p5',num:5,name:'Rita Almeida',pos:'Base',birth:'2008-02-14',height:165,hand:'Direita',selecao:'Seleção Sub18'},
+  {id:'p6',num:6,name:'Diana Vaz',pos:'Base',birth:'2008-10-19',height:168,hand:'Direita'},
+  {id:'p8',num:8,name:'Joana Pires',pos:'Extremo',birth:'2006-04-03',height:174,hand:'Direita',selecao:'Seleção Sub18'},
+  {id:'p9',num:9,name:'Sofia Rocha',pos:'Base',birth:'2007-12-27',height:167,hand:'Direita',status:'Condicionada',notes:'Dor no joelho direito: sem saltos em 2 treinos por semana.'},
+  {id:'p11',num:11,name:'Marta Neves',pos:'Extremo/Poste',birth:'2005-07-15',height:182,hand:'Direita',selecao:'Seleção Sub20'},
+  {id:'p13',num:13,name:'Catarina Dias',pos:'Poste',birth:'2006-08-11',height:186,hand:'Direita',status:'Lesionada',notes:'Entorse no tornozelo esquerdo. Regresso previsto a 28 set.'},
+  {id:'p14',num:14,name:'Ana Faria',pos:'Extremo',birth:'2008-05-05',height:175,hand:'Esquerda'}
+].map(p=>Object.assign({active:true,status:'Disponível',selecao:'',notes:''},p));
+try { const raw = localStorage.getItem(RKEY); if (raw){ const l = JSON.parse(raw); if (Array.isArray(l) && l.length) ROSTER.splice(0, ROSTER.length, ...l); } } catch(e){}
+const P = {};
+function refreshP(){ Object.keys(P).forEach(k=>delete P[k]); ROSTER.forEach(p=>{ P[p.id]=p; }); }
+refreshP();
+const saveR = () => { try { localStorage.setItem(RKEY, JSON.stringify(ROSTER)); } catch(e){} };
+const activeR = () => ROSTER.filter(p=>p.active!==false);
+const STARTERS = ['p4','p7','p10','p12','p15'];
+const short = p => { const s=p.name.split(' '); return s[0][0]+'. '+s[s.length-1]; };
+const KEY = 'mesa-de-jogo-v1';
+let uidN = 1; const uid = () => 'e'+(uidN++);
+
+/* ---------- court geometry (decímetros, FIBA) ---------- */
+const BX=75, BY=15.75, R3=67.5, CORNER_Y=29.9;
+function zone(x,y){
+  if (y<=CORNER_Y && (x<9 || x>141)) return 'c3';
+  if (Math.hypot(x-BX,y-BY) > R3) return 'a3';
+  if (x>=50.5 && x<=99.5 && y<=58) return 'paint';
+  return 'mid';
+}
+const ZONES = {paint:'Garrafão', mid:'Média distância', c3:'Triplo de canto', a3:'Triplo frontal/lateral'};
+function courtLines(){
+  return `<rect class="floor" x="0" y="0" width="150" height="140"/>
+  <rect class="paintz" x="50.5" y="0" width="49" height="58"/>
+  <rect class="ln" x="0" y="0" width="150" height="140"/>
+  <rect class="ln" x="50.5" y="0" width="49" height="58"/>
+  <path class="ln" d="M9 0 V29.9 A67.5 67.5 0 0 0 141 29.9 V0"/>
+  <path class="ln" d="M57 58 A18 18 0 0 0 93 58"/>
+  <path class="ln dash" d="M57 58 A18 18 0 0 1 93 58"/>
+  <path class="ln" d="M62.5 15.75 A12.5 12.5 0 0 0 87.5 15.75"/>
+  <path class="ln" d="M57 140 A18 18 0 0 1 93 140"/>
+  <line class="ln" x1="66" y1="12" x2="84" y2="12" style="stroke-width:.9"/>
+  <circle class="hoop" cx="75" cy="15.75" r="2.25"/>`;
+}
+function mark(e, cls){
+  if (e.made) return `<circle class="mk-made ${cls||''}" cx="${e.x.toFixed(1)}" cy="${e.y.toFixed(1)}" r="2.6"/>`;
+  const s=2.1, x=e.x, y=e.y;
+  return `<g class="mk-miss ${cls||''}"><line x1="${x-s}" y1="${y-s}" x2="${x+s}" y2="${y+s}"/><line x1="${x-s}" y1="${y+s}" x2="${x+s}" y2="${y-s}"/></g>`;
+}
+
+/* ---------- sample game ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function sample(){
+  const r = rng(18), ev=[];
+  const W = {p7:3,p10:2.4,p4:2,p12:2,p15:1.5,p11:1.3};
+  const pick = (arr, w) => { const ws=arr.map(id=>w?(W[id]||1):1); let t=r()*ws.reduce((a,b)=>a+b,0); for(let i=0;i<arr.length;i++){t-=ws[i]; if(t<=0) return arr[i];} return arr[0]; };
+  const pt = z => { for(let k=0;k<400;k++){ const x=2+r()*146, y=2+r()*(z==='paint'?55:z==='mid'?78:z==='c3'?27:118); if(zone(x,y)===z) return {x,y}; } return {x:75,y:10}; };
+  const L = {1:STARTERS, 2:['p5','p7','p8','p12','p13'], 3:['p4','p7','p10','p11','p15'], '3b':['p4','p9','p10','p12','p15']};
+  let on = L[1]; const N = 24;
+  for (let q=1;q<=3;q++){
+    if (q>1){ ev.push({id:uid(),t:'sub',q,clock:600,prev:on.slice(),on:L[q].slice()}); on=L[q]; }
+    const last = q===3 ? 13 : N-1;
+    for (let i=0;i<=last;i++){
+      const clock = Math.round(600-(i+.5)*600/N);
+      const add = o => ev.push(Object.assign({id:uid(),q,clock,on:on.slice()},o));
+      if (q===3 && i===7){ ev.push({id:uid(),t:'sub',q,clock,prev:on.slice(),on:L['3b'].slice()}); on=L['3b']; }
+      const x = r();
+      if (x<.40){
+        const p = pick(on,true), zr=r();
+        const z = zr<.4?'paint':zr<.6?'mid':zr<.88?'a3':'c3';
+        const loc = pt(z), made = r() < ({paint:.55,mid:.38,a3:.32,c3:.40})[z];
+        add({t:'shot',p,x:loc.x,y:loc.y,three:z==='a3'||z==='c3',made});
+        if (made && r()<.6){ add({t:'ast',p:pick(on.filter(o=>o!==p))}); }
+        if (!made && r()<.3){ add({t:'orb',p:pick(on)}); }
+      } else if (x<.47){ const p=pick(on,true); add({t:'ft',p,made:r()<.74}); add({t:'ft',p,made:r()<.74}); }
+      else if (x<.54){ add({t:'tov',p:pick(on)}); }
+      else if (x<.59){ add({t:'stl',p:pick(on)}); }
+      else if (x<.62){ add({t:'blk',p:pick(on)}); }
+      else if (x<.69){ add({t:'pf',p:pick(on)}); }
+      else if (x<.72){ add({t:'oppf'}); }
+      else if (x<.83){ add({t:'drb',p:pick(on)}); }
+      else { const y=r(); add({t:'opp',pts:y<.12?1:y<.78?2:3}); }
+    }
+  }
+  return {events:ev,q:3,clock:250,onCourt:on.slice(),sample:true};
+}
+
+/* ---------- state ---------- */
+let S = null;
+try { const raw = localStorage.getItem(KEY); if (raw) S = JSON.parse(raw); } catch(e){}
+if (!S || !Array.isArray(S.events)) S = sample();
+S.events.forEach(e=>{ const n=parseInt(String(e.id).slice(1)); if(n>=uidN) uidN=n+1; });
+let UI = {view:'live', selected:null, pending:null, subMode:false, draft:null, running:false, shotFilter:'team', confirmNew:false};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+
+function push(o){ const e = Object.assign({id:uid(), q:S.q, clock:S.clock, on:S.onCourt.slice()}, o); S.events.push(e); save(); return e; }
+
+/* ---------- stats ---------- */
+function blank(){ return {pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,orb:0,drb:0,ast:0,stl:0,blk:0,tov:0,pf:0,pm:0}; }
+function compute(events){
+  const pl = Object.fromEntries(ROSTER.map(p=>[p.id,blank()]));
+  const team = blank(); let opp=0, oppPf={};
+  const qs = {}; const lu = {};
+  const lkey = on => on.slice().sort((a,b)=>P[a].num-P[b].num).join(',');
+  const L = on => { const k=lkey(on); return lu[k] || (lu[k]={on:k.split(','),for:0,against:0,poss:0}); };
+  for (const e of events){
+    qs[e.q] = qs[e.q] || {us:0,them:0,tov:0};
+    const s = e.p ? pl[e.p] : null;
+    const add = (k,v=1)=>{ s[k]+=v; team[k]+=v; };
+    const scored = pts => { add('pts',pts); qs[e.q].us+=pts; e.on.forEach(id=>{pl[id].pm+=pts;}); team.pm+=pts; L(e.on).for+=pts; };
+    switch(e.t){
+      case 'shot': add('fga'); L(e.on).poss+=1; if(e.three) add('tpa'); if(e.made){ add('fgm'); if(e.three) add('tpm'); scored(e.three?3:2);} break;
+      case 'ft': add('fta'); L(e.on).poss+=.44; if(e.made){ add('ftm'); scored(1);} break;
+      case 'orb': add('orb'); L(e.on).poss-=1; break;
+      case 'tov': add('tov'); L(e.on).poss+=1; qs[e.q].tov++; break;
+      case 'drb': case 'ast': case 'stl': case 'blk': case 'pf': add(e.t); break;
+      case 'opp': opp+=e.pts; qs[e.q].them+=e.pts; e.on.forEach(id=>{pl[id].pm-=e.pts;}); team.pm-=e.pts; L(e.on).against+=e.pts; break;
+      case 'oppf': oppPf[e.q]=(oppPf[e.q]||0)+1; break;
+    }
+  }
+  return {pl,team,opp,qs,lineups:Object.values(lu),oppPf};
+}
+const pct = (a,b) => b ? Math.round(100*a/b)+'%' : '–';
+const efg = s => s.fga ? Math.round(100*(s.fgm+.5*s.tpm)/s.fga)+'%' : '–';
+const ts = s => (s.fga+s.fta) ? Math.round(100*s.pts/(2*(s.fga+.44*s.fta)))+'%' : '–';
+const poss = s => s.fga - s.orb + s.tov + .44*s.fta;
+const sgn = n => n>0?'+'+n:String(n);
+const pmCls = n => n>0?'pos':n<0?'neg':'';
+const fmtClock = s => Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+const qLabel = q => q>4 ? 'P'+(q-4) : q+'.º';
+
+/* ---------- render: header ---------- */
+const $ = id => document.getElementById(id);
+function pips(n){ let h=''; for(let i=1;i<=5;i++) h+=`<span class="pip ${i<=n?'on':''} ${n>=4&&i<=n?'warn':''}"></span>`; return h; }
+function renderHeader(st){
+  $('sUs').textContent = st.team.pts; $('sThem').textContent = st.opp;
+  const fu = S.events.filter(e=>e.t==='pf'&&e.q===S.q).length, ft = st.oppPf[S.q]||0;
+  $('fUs').innerHTML = pips(Math.min(fu,5)); $('fThem').innerHTML = pips(Math.min(ft,5));
+  $('bUs').innerHTML = fu>=4 ? '<span class="bonus">Adv. em bónus</span>' : 'Faltas equipa';
+  $('bThem').innerHTML = ft>=4 ? '<span class="bonus">Em bónus</span>' : 'Faltas equipa';
+  $('qsel').innerHTML = [1,2,3,4,5].map(q=>`<button data-q="${q}" aria-pressed="${q===S.q}">${q>4?'P':q+'.º'}</button>`).join('');
+  $('clockTxt').textContent = fmtClock(S.clock);
+  $('clock').classList.toggle('run', UI.running);
+  const train = UI.view==='train' || UI.view==='atl';
+  document.querySelector('.board').hidden = train;
+  $('sampleChip').hidden = !S.sample || train;
+  $('newGame').hidden = train; $('comp').hidden = train;
+  $('newGame').textContent = UI.confirmNew ? 'Apagar e começar?' : 'Novo jogo';
+  $('newGame').classList.toggle('confirm', UI.confirmNew);
+  S.comp = S.comp || 'Sub22';
+  $('usName').textContent = S.comp;
+  $('comp').innerHTML = ['Sub18','Sub22'].map(c=>`<button data-comp="${c}" aria-pressed="${S.comp===c}">${c}</button>`).join('');
+  document.querySelectorAll('#tabs .tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.view===UI.view));
+  ['live','box','shots','lineups','train','atl'].forEach(v=>$('v-'+v).hidden = v!==UI.view);
+}
+
+/* ---------- render: live ---------- */
+function renderRoster(st){
+  const on = UI.subMode ? UI.draft : S.onCourt;
+  const item = p => {
+    const s = st.pl[p.id], inC = on.includes(p.id);
+    const cls = ['pl', inC?'':'bench', (!UI.subMode&&UI.selected===p.id)?'sel':'', (UI.subMode&&inC)?'draft-in':''].join(' ');
+    let fp=''; for(let i=1;i<=5;i++) fp+=`<i class="${i<=s.pf?'on':''}"></i>`;
+    return `<button class="${cls}" data-id="${p.id}" aria-pressed="${UI.selected===p.id}">
+      <span class="num">${p.num}</span>
+      <span style="min-width:0"><span class="nm" style="display:block">${short(p)}</span><span class="sub">${p.pos}</span></span>
+      <span><span class="pts" style="display:block">${s.pts}</span><span class="fp ${s.pf>=4?'danger':''}">${fp}</span></span>
+    </button>`;
+  };
+  const inList = ROSTER.filter(p=>on.includes(p.id)), bench = activeR().filter(p=>!on.includes(p.id));
+  $('roster').innerHTML = `<div class="rgroup">Em campo · ${inList.length}/5</div>${inList.map(item).join('')}<div class="rgroup">Banco</div>${bench.map(item).join('')}`;
+  $('subCtl').innerHTML = UI.subMode
+    ? `<span style="display:flex;gap:4px"><button class="btn-sm" data-sub="cancel">Cancelar</button><button class="btn-sm go" data-sub="ok" ${UI.draft.length===5?'':'disabled'}>OK ${UI.draft.length}/5</button></span>`
+    : `<button class="btn-sm" data-sub="start">⇄ Substituir</button>`;
+}
+function renderCourt(){
+  const shots = S.events.filter(e=>e.t==='shot');
+  let m = shots.map(e=>mark(e, e.q===S.q?'':'old')).join('');
+  if (UI.pending) m += `<circle class="pendc" cx="${UI.pending.x}" cy="${UI.pending.y}" r="1.6"/><circle class="pend" cx="${UI.pending.x}" cy="${UI.pending.y}" r="3.6"/>`;
+  $('court').innerHTML = courtLines() + m;
+  $('courtHint').textContent = UI.subMode ? 'A fazer substituição…' : 'Toca onde foi o lançamento · período atual em destaque';
+}
+function chipsFor(ids, act, pressed){
+  return ids.map(id=>`<button class="chip" data-act="${act}" data-v="${id}" aria-pressed="${pressed===id}"><b>${P[id].num}</b><small>${short(P[id]).split(' ')[1]}</small></button>`).join('');
+}
+function renderPanel(){
+  const pn = UI.pending; let h='';
+  if (pn){
+    const zl = ZONES[pn.z], pts = pn.three?3:2;
+    if (pn.step==='result'){
+      h = `<div class="flowtitle">Lançamento de ${pts} <span>· ${zl}</span></div>
+        <div class="label">Quem lançou?</div>
+        <div class="chips">${chipsFor(S.onCourt,'shooter',pn.shooter)}</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr"><button class="big ok" data-act="made">Cesto</button><button class="big ko" data-act="miss">Falhado</button></div>
+        <button class="btn-sm" data-act="cancel">Cancelar</button>`;
+    } else if (pn.step==='assist'){
+      h = `<div class="flowtitle"><span class="ok-t">✓</span> ${pts} pts #${P[pn.shooter].num} <span>· assistência?</span></div>
+        <div class="chips">${chipsFor(S.onCourt.filter(i=>i!==pn.shooter),'assist')}</div>
+        <button class="chip wide" data-act="assist" data-v=""><b style="font-size:16px">Sem assistência</b></button>`;
+    } else {
+      h = `<div class="flowtitle"><span class="ko-t">✗</span> #${P[pn.shooter].num} falhou <span>· quem ressaltou?</span></div>
+        <div class="label">Ressalto ofensivo</div>
+        <div class="chips">${chipsFor(S.onCourt,'reb')}</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr"><button class="chip wide" data-act="reb" data-v="opp"><b style="font-size:16px">Adversário</b></button><button class="chip wide" data-act="reb" data-v=""><b style="font-size:16px">Não registar</b></button></div>`;
+    }
+  } else {
+    const sel = UI.selected && S.onCourt.includes(UI.selected) ? P[UI.selected] : null;
+    h = `<div class="who ${sel?'':'none'}">${sel?`<span class="n">#${sel.num}</span><span class="t">${sel.name}</span>`:`<span class="t">Escolhe a jogadora no plantel, depois a ação</span>`}</div>
+      <div class="grid">
+        <button class="act ok" data-act="stat" data-v="ft1"><b>LL ✓</b><small>lance livre</small></button>
+        <button class="act ko" data-act="stat" data-v="ft0"><b>LL ✗</b><small>lance livre</small></button>
+        <button class="act" data-act="stat" data-v="ast"><b>AST</b><small>assistência</small></button>
+        <button class="act" data-act="stat" data-v="orb"><b>RO</b><small>ress. ofensivo</small></button>
+        <button class="act" data-act="stat" data-v="drb"><b>RD</b><small>ress. defensivo</small></button>
+        <button class="act" data-act="stat" data-v="stl"><b>RB</b><small>roubo</small></button>
+        <button class="act" data-act="stat" data-v="tov"><b>PB</b><small>perda de bola</small></button>
+        <button class="act" data-act="stat" data-v="blk"><b>DS</b><small>desarme</small></button>
+        <button class="act ko" data-act="stat" data-v="pf"><b>FALTA</b><small>pessoal</small></button>
+      </div>
+      <div class="label">Adversário</div>
+      <div class="opp">
+        <button class="act" data-act="opp" data-v="1"><b>+1</b></button>
+        <button class="act" data-act="opp" data-v="2"><b>+2</b></button>
+        <button class="act" data-act="opp" data-v="3"><b>+3</b></button>
+        <button class="act" data-act="oppf"><b>F</b><small>falta</small></button>
+      </div>`;
+  }
+  $('panel').innerHTML = h;
+}
+const LBL = {orb:'Ress. ofensivo',drb:'Ress. defensivo',ast:'Assistência',stl:'Roubo',blk:'Desarme',tov:'Perda de bola',pf:'Falta pessoal',oppf:'Falta adversário',sub:'Substituição'};
+function renderLog(){
+  const rows = S.events.slice(-40).reverse().map(e=>{
+    let who = e.p ? `<span class="ln2">#${P[e.p].num}</span>` : '<span></span>', txt;
+    if (e.t==='shot') txt = `<span class="${e.made?'ok-t':'ko-t'}">${e.made?'✓':'✗'}</span> ${e.three?'Triplo':'Lançamento 2'} · ${ZONES[zone(e.x,e.y)]}`;
+    else if (e.t==='ft') txt = `<span class="${e.made?'ok-t':'ko-t'}">${e.made?'✓':'✗'}</span> Lance livre`;
+    else if (e.t==='opp') txt = `Adversário +${e.pts}`;
+    else if (e.t==='sub') txt = `Entra ${e.on.filter(i=>!e.prev.includes(i)).map(i=>'#'+P[i].num).join(' ')} · sai ${e.prev.filter(i=>!e.on.includes(i)).map(i=>'#'+P[i].num).join(' ')}`;
+    else txt = LBL[e.t];
+    const del = e.t==='sub' ? '<span></span>' : `<button class="del" data-act="del" data-v="${e.id}" aria-label="Apagar registo">×</button>`;
+    return `<div class="lr"><span class="lt">${qLabel(e.q)} ${fmtClock(e.clock)}</span>${who}<span>${txt}</span>${del}</div>`;
+  }).join('');
+  $('log').innerHTML = rows || '<p class="hint">Ainda sem registos. Toca no campo ou escolhe uma jogadora.</p>';
+}
+
+/* ---------- render: reports ---------- */
+function insights(st){
+  const out = [], t = st.team;
+  const qk = Object.keys(st.qs).map(Number).sort((a,b)=>a-b);
+  if (qk.length){
+    out.push({c:'', t:'Parciais: ' + qk.map(q=>`${qLabel(q)} ${st.qs[q].us}–${st.qs[q].them}`).join(' · ')});
+    const worst = qk.reduce((a,q)=> (st.qs[q].us-st.qs[q].them) < (st.qs[a].us-st.qs[a].them) ? q : a, qk[0]);
+    const d = st.qs[worst].us-st.qs[worst].them;
+    if (d<0) out.push({c:'bad', t:`O ${qLabel(worst)} período foi o pior (${sgn(d)}), com ${st.qs[worst].tov} perdas de bola nesse período.`});
+  }
+  if (t.fga){
+    const miss = t.fga-t.fgm;
+    out.push({c: t.tpa && t.tpm/t.tpa>=.35 ? 'good':'warn', t:`Triplos ${t.tpm}/${t.tpa} (${pct(t.tpm,t.tpa)}). eFG% da equipa: ${efg(t)}; TS%: ${ts(t)}.`});
+    out.push({c: miss && t.orb/miss>=.3 ? 'good':'warn', t:`Ressaltos ofensivos: ${t.orb} em ${miss} lançamentos falhados (${pct(t.orb,miss)} de segundas oportunidades).`});
+  }
+  const p100 = poss(t);
+  if (p100>0) out.push({c: t.tov/p100>.18?'bad':'', t:`${t.tov} perdas de bola em ~${Math.round(p100)} posses (${pct(t.tov,p100)}). Pontos por posse: ${(t.pts/p100).toFixed(2)}.`});
+  const top = ROSTER.map(p=>[p,st.pl[p.id]]).sort((a,b)=>b[1].pts-a[1].pts)[0];
+  if (top && top[1].pts) out.push({c:'good', t:`Melhor marcadora: #${top[0].num} ${top[0].name}, ${top[1].pts} pts (${top[1].fgm}/${top[1].fga} LC, TS% ${ts(top[1])}).`});
+  const foul = ROSTER.filter(p=>st.pl[p.id].pf>=3).map(p=>`#${p.num} ${short(p)} (${st.pl[p.id].pf})`);
+  if (foul.length) out.push({c:'warn', t:`Atenção às faltas: ${foul.join(', ')}.`});
+  const lu = st.lineups.filter(l=>l.poss>=4).sort((a,b)=>(b.for-b.against)-(a.for-a.against));
+  if (lu.length>1){
+    const b = lu[0], w = lu[lu.length-1];
+    out.push({c:'good', t:`Quinteto mais eficaz: ${b.on.map(i=>P[i].num).join('-')} (${sgn(b.for-b.against)}, ${b.for}–${b.against}).`});
+    if (w.for-w.against<0) out.push({c:'bad', t:`Quinteto com pior saldo: ${w.on.map(i=>P[i].num).join('-')} (${sgn(w.for-w.against)}).`});
+  }
+  return out;
+}
+function renderBox(st){
+  const t = st.team, P0 = poss(t);
+  const row = (label, s, dim, cls) => `<tr class="${dim?'dim':''} ${cls||''}"><td>${label}</td><td>${s.pts}</td><td>${s.fgm}/${s.fga}</td><td>${pct(s.fgm,s.fga)}</td><td>${s.tpm}/${s.tpa}</td><td>${s.ftm}/${s.fta}</td><td>${s.orb}</td><td>${s.drb}</td><td>${s.orb+s.drb}</td><td>${s.ast}</td><td>${s.stl}</td><td>${s.blk}</td><td>${s.tov}</td><td>${s.pf}</td><td class="${cls?'':pmCls(s.pm)}">${cls?'':sgn(s.pm)}</td><td>${efg(s)}</td><td>${ts(s)}</td></tr>`;
+  const rows = ROSTER.map(p=>{ const s=st.pl[p.id]; const any = Object.values(s).some(v=>v) || S.events.some(e=>e.on&&e.on.includes(p.id)); if (!any && p.active===false) return ''; return row(`<span class="nn">${p.num}</span>${p.name}`, s, !any); }).join('');
+  $('v-box').innerHTML = `
+    <div class="card"><h2>Resumo da equipa</h2><div class="tiles">
+      <div class="tile"><div class="v">${t.pts}–${st.opp}</div><div class="k">Resultado</div></div>
+      <div class="tile"><div class="v">${efg(t)}</div><div class="k">eFG% (lançamento efetivo)</div></div>
+      <div class="tile"><div class="v">${ts(t)}</div><div class="k">TS% (eficiência real)</div></div>
+      <div class="tile"><div class="v">${Math.round(P0)}</div><div class="k">Posses (estimativa)</div></div>
+      <div class="tile"><div class="v">${P0?(t.pts/P0).toFixed(2):'–'}</div><div class="k">Pontos por posse</div></div>
+      <div class="tile"><div class="v">${t.tov}</div><div class="k">Perdas de bola</div></div>
+    </div></div>
+    <div class="card"><h2>Leitura automática</h2><ul class="insights">${insights(st).map(i=>`<li class="${i.c}">${i.t}</li>`).join('')}</ul></div>
+    <div class="card"><h2>Ficha de jogo</h2><div class="tablewrap"><table>
+      <thead><tr><th>Jogadora</th><th>PTS</th><th>LC</th><th>LC%</th><th>3P</th><th>LL</th><th>RO</th><th>RD</th><th>RT</th><th>AST</th><th>RB</th><th>DS</th><th>PB</th><th>FP</th><th>+/−</th><th>eFG%</th><th>TS%</th></tr></thead>
+      <tbody>${rows}${row('Equipa', t, false, 'tot')}</tbody></table></div>
+      <p class="legend">LC lançamentos de campo · 3P triplos · LL lances livres · RO/RD/RT ressaltos ofensivos/defensivos/total · AST assistências · RB roubos · DS desarmes · PB perdas de bola · FP faltas pessoais · +/− saldo com a jogadora em campo · eFG% = (LC + 0,5×3P) / LCT · TS% = PTS / (2×(LCT + 0,44×LLT))</p>
+    </div>`;
+}
+function renderShots(){
+  const all = S.events.filter(e=>e.t==='shot');
+  const shooters = ROSTER.filter(p=>all.some(e=>e.p===p.id));
+  const f = UI.shotFilter, shots = f==='team' ? all : all.filter(e=>e.p===f);
+  const z = {}; Object.keys(ZONES).forEach(k=>z[k]={m:0,a:0});
+  shots.forEach(e=>{ const k=zone(e.x,e.y); z[k].a++; if(e.made) z[k].m++; });
+  const m = shots.filter(e=>e.made).length;
+  $('v-shots').innerHTML = `
+    <div class="card"><div class="chips" style="margin-bottom:12px">
+      <button class="chip" data-shot="team" aria-pressed="${f==='team'}"><b style="font-size:16px">Equipa</b><small>${all.length} lanç.</small></button>
+      ${shooters.map(p=>`<button class="chip" data-shot="${p.id}" aria-pressed="${f===p.id}"><b>${p.num}</b><small>${short(p).split(' ')[1]}</small></button>`).join('')}
+    </div>
+    <div class="shotlayout">
+      <svg viewBox="-2 -2 154 144" aria-label="Mapa de lançamentos">${courtLines()}${shots.map(e=>mark(e)).join('')}</svg>
+      <div>
+        <h2>${f==='team'?'Equipa':'#'+P[f].num+' '+P[f].name}</h2>
+        <div class="tiles" style="margin-bottom:12px"><div class="tile"><div class="v">${m}/${shots.length}</div><div class="k">Lançamentos de campo · ${pct(m,shots.length)}</div></div></div>
+        <table><thead><tr><th>Zona</th><th>Conv./Tent.</th><th>%</th><th>Pts/lanç.</th></tr></thead><tbody>
+          ${Object.keys(ZONES).map(k=>{ const v=z[k], pv=(k==='c3'||k==='a3')?3:2; return `<tr><td>${ZONES[k]}</td><td>${v.m}/${v.a}</td><td>${pct(v.m,v.a)}</td><td>${v.a?(v.m*pv/v.a).toFixed(2):'–'}</td></tr>`; }).join('')}
+        </tbody></table>
+        <p class="legend">● cesto · ✕ falhado. "Pts/lanç." compara zonas com valores diferentes: um triplo a 33% vale o mesmo que um lançamento de 2 a 50%.</p>
+      </div>
+    </div></div>`;
+}
+function renderLineups(st){
+  const lu = st.lineups.filter(l=>l.for||l.against||l.poss>0).sort((a,b)=>(b.for-b.against)-(a.for-a.against));
+  $('v-lineups').innerHTML = `<div class="card"><h2>Quintetos</h2><div class="tablewrap"><table>
+    <thead><tr><th>Quinteto</th><th>Marcados</th><th>Sofridos</th><th>+/−</th><th>Posses (est.)</th><th>Pts/posse</th></tr></thead>
+    <tbody>${lu.map(l=>{ const d=l.for-l.against; return `<tr><td><span class="nn">${l.on.map(i=>P[i].num).join(' · ')}</span><span class="hint">${l.on.map(i=>short(P[i]).split(' ')[1]).join(', ')}</span></td><td>${l.for}</td><td>${l.against}</td><td class="${pmCls(d)}">${sgn(d)}</td><td>${Math.max(0,Math.round(l.poss))}</td><td>${l.poss>=1?(l.for/l.poss).toFixed(2):'–'}</td></tr>`; }).join('') || '<tr><td colspan="6">Sem dados ainda.</td></tr>'}</tbody>
+  </table></div><p class="legend">Cada registo guarda quem estava em campo, por isso o saldo de cada quinteto é calculado automaticamente, sem trabalho extra durante o jogo.</p></div>`;
+}
+
+function render(){
+  const st = compute(S.events);
+  renderHeader(st);
+  if (UI.view==='live'){ renderRoster(st); renderCourt(); renderPanel(); renderLog(); }
+  else if (UI.view==='box') renderBox(st);
+  else if (UI.view==='shots') renderShots();
+  else if (UI.view==='train') renderTrain();
+  else if (UI.view==='atl') renderAtl();
+  else renderLineups(st);
+}
+
+/* ---------- treino: exercícios de lançamento ---------- */
+const TKEY = 'mesa-treinos-v2';
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmtDate = s => { const [y,m,d]=s.split('-'); return `${+d} ${MES[+m-1]}`; };
+const POS = [
+  {id:'c3e',label:'Canto esq.',kind:'3P',x:6,y:10},
+  {id:'a3e',label:'45º esq.',kind:'3P',x:22,y:66},
+  {id:'f3', label:'Frente',kind:'3P',x:75,y:91},
+  {id:'a3d',label:'45º dir.',kind:'3P',x:128,y:66},
+  {id:'c3d',label:'Canto dir.',kind:'3P',x:144,y:10},
+  {id:'b2e',label:'Fundo esq.',kind:'2P',x:30,y:12},
+  {id:'k2e',label:'Cotovelo esq.',kind:'2P',x:47,y:56},
+  {id:'ll', label:'Lance livre',kind:'LL',x:75,y:62},
+  {id:'k2d',label:'Cotovelo dir.',kind:'2P',x:103,y:56},
+  {id:'b2d',label:'Fundo dir.',kind:'2P',x:120,y:12}
+];
+const PS = Object.fromEntries(POS.map(p=>[p.id,p]));
+const TYPES = {series:'Séries', goal:'Desafio individual', team:'Objetivo de equipa'};
+const clamp = v => Math.max(.03, Math.min(.97, v));
+
+function trainSample(){
+  const r = rng(7);
+  const exercises = [
+    {id:'e1', name:'12/13/14', type:'goal', parts:[{id:'ll',label:'LL · 10 em 12'},{id:'p2',label:'2P · 10 em 13'},{id:'p3',label:'3P · 10 em 14'}]},
+    {id:'e2', name:'Séries de 10', type:'series', per:10},
+    {id:'e3', name:'Triplos após passe', type:'series', per:10},
+    {id:'e4', name:'8+6', type:'team', parts:[{id:'p2',label:'8 de 2P'},{id:'p3',label:'6 de 3P'}]}
+  ];
+  const skill={}, trend={};
+  ROSTER.forEach(p=>{ skill[p.id]={'3P':.30+r()*.14,'2P':.40+r()*.14,'LL':.68+r()*.16}; trend[p.id]=-.002+r()*.009; });
+  trend.p7=.011; trend.p9=.009; trend.p15=-.003;
+  const adj = {c3e:.04,c3d:.04,f3:-.02,b2e:.02,b2d:.02};
+  const series=[], goals={}, team={}; let k=0, n=1;
+  const shoot = (pr,max) => { let m=0; for(let i=0;i<max;i++) if(r()<pr) m++; return m; };
+  const sim = (pr,max) => { let m=0; for(let i=0;i<max;i++){ if(r()<pr) m++; if(m>=10) return true; } return false; };
+  for (let d=new Date(2026,7,3); d<=new Date(2026,8,15); d.setDate(d.getDate()+1)){
+    const wd=d.getDay(); if(![1,3,5].includes(wd)) continue;
+    k++; const date=iso(d), present=ROSTER.filter(()=>r()<.9);
+    const pr = (p,kind,pos) => clamp(skill[p.id][kind]+trend[p.id]*k+(adj[pos]||0));
+    present.forEach(p=>{
+      for (let s=0;s<3;s++){ const pos=POS[Math.floor(r()*POS.length)]; series.push({id:'s'+(n++),date,ex:'e2',p:p.id,pos:pos.id,made:shoot(pr(p,pos.kind,pos.id),10),att:10}); }
+      if (wd===5) ['c3e','c3d'].forEach(pid=>series.push({id:'s'+(n++),date,ex:'e3',p:p.id,pos:pid,made:shoot(pr(p,'3P',pid)-.03,10),att:10}));
+      if (wd!==5){
+        goals[`${date}|e1|${p.id}|ll`] = sim(clamp(pr(p,'LL','ll')+.06),12);
+        goals[`${date}|e1|${p.id}|p2`] = sim(clamp(pr(p,'2P','k2e')+.28),13);
+        goals[`${date}|e1|${p.id}|p3`] = sim(clamp(pr(p,'3P','f3')+.36),14);
+      }
+    });
+    if (wd===5) team[`${date}|e4`] = {parts:{p2:r()<.45+k*.025, p3:r()<.25+k*.03}, note:''};
+  }
+  return {exercises, series, goals, team, sample:true};
+}
+let T = null;
+try { const raw = localStorage.getItem(TKEY); if (raw) T = JSON.parse(raw); } catch(e){}
+if (!T || !Array.isArray(T.exercises)) T = trainSample();
+const saveT = () => { try { localStorage.setItem(TKEY, JSON.stringify(T)); } catch(e){} };
+UI.train = {ex:'e2', date:iso(new Date()), player:null, pos:null, prog:'team', creating:false, draft:{name:'',type:'series',per:10,parts:''}};
+
+const sumS = list => { let m=0,a=0; list.forEach(e=>{ m+=e.made; a+=e.att; }); return a?{m,a,p:m/a}:null; };
+const avgP = arr => { const v=arr.filter(Boolean); if(!v.length) return null; const m=v.reduce((s,x)=>s+x.m,0), a=v.reduce((s,x)=>s+x.a,0); return a?m/a:null; };
+const pc = v => v==null ? '–' : Math.round(v*100)+'%';
+const pp = v => v==null ? '–' : `<span class="${v>0.005?'up':v<-0.005?'down':''}">${v>0.005?'▲':v<-0.005?'▼':'='} ${Math.abs(Math.round(v*100))} pp</span>`;
+function trendOf(vals){ const v=vals.filter(Boolean); if(v.length<4) return null; const n=Math.min(3,Math.floor(v.length/2)); return avgP(v.slice(-n)) - avgP(v.slice(0,n)); }
+const uniq = a => [...new Set(a)].sort();
+
+function chart(sessions, main, ref, mainName){
+  const W=640,H=240,ml=40,mr=46,mt=16,mb=30, n=sessions.length;
+  const all=[...main,...(ref||[])].filter(Boolean).map(v=>v.p*100);
+  if (!all.length) return '<p class="hint">Ainda sem registos neste exercício.</p>';
+  const lo=Math.max(0,Math.floor((Math.min(...all)-5)/10)*10), hi=Math.min(100,Math.ceil((Math.max(...all)+5)/10)*10);
+  const x = i => ml + (n===1 ? (W-ml-mr)/2 : i*(W-ml-mr)/(n-1));
+  const y = v => mt + (hi-v)/Math.max(1,hi-lo)*(H-mt-mb);
+  const step = hi-lo>50 ? 20 : 10;
+  let g='';
+  for (let v=lo; v<=hi; v+=step) g += `<line class="gridl" x1="${ml}" x2="${W-mr}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${ml-8}" y="${y(v)+4}" text-anchor="end">${v}%</text>`;
+  const every = Math.max(1, Math.ceil(n/6));
+  sessions.forEach((s,i)=>{ if(i%every===0 || i===n-1) g += `<text class="ax" x="${x(i)}" y="${H-8}" text-anchor="middle">${fmtDate(s.date)}</text>`; });
+  const path = ser => ser.map((v,i)=>v?[x(i),y(v.p*100)]:null).filter(Boolean).map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  if (ref) g += `<path d="${path(ref)}" fill="none" stroke="var(--mute)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>`;
+  g += `<path d="${path(main)}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  let lastI=-1; main.forEach((v,i)=>{ if(v) lastI=i; });
+  main.forEach((v,i)=>{ if(!v) return; g += `<circle cx="${x(i)}" cy="${y(v.p*100)}" r="${i===lastI?5.5:4}" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`; });
+  if (lastI>=0) g += `<text x="${x(lastI)+10}" y="${y(main[lastI].p*100)+5}" fill="var(--ink)" font-family="Barlow Condensed, sans-serif" font-weight="700" font-size="17">${pc(main[lastI].p)}</text>`;
+  sessions.forEach((s,i)=>{
+    const v=main[i], rv=ref&&ref[i];
+    const x0 = n===1?ml:(i===0?ml:(x(i-1)+x(i))/2), x1 = n===1?W-mr:(i===n-1?W-mr:(x(i)+x(i+1))/2);
+    const tip = `${fmtDate(s.date)} · ${mainName}: ${v?`${v.m}/${v.a} (${pc(v.p)})`:'sem registo'}${rv?` · Equipa ${pc(rv.p)}`:''}`;
+    const ty = v ? y(v.p*100) : (rv ? y(rv.p*100) : mt);
+    g += `<rect x="${x0}" y="${mt}" width="${Math.max(1,x1-x0)}" height="${H-mt-mb}" fill="transparent" data-tip="${tip}" data-tx="${x(i)/W*100}" data-ty="${ty/H*100}"/>`;
+  });
+  return `<div class="chartwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução por treino">${g}</svg><div class="tip" hidden></div></div>`;
+}
+
+/* mini campo com as posições */
+function posCourt(selected, stats){
+  let g = courtLines();
+  POS.forEach(p=>{
+    const st = stats && stats[p.id];
+    if (stats){
+      const op = st ? .25 + .75*st.p : 0;
+      g += `<g><circle cx="${p.x}" cy="${p.y}" r="8" class="spot" ${st?`style="fill:rgba(242,165,65,${op.toFixed(2)})"`:''}/>
+        <text x="${p.x}" y="${p.y+2.4}" text-anchor="middle" class="spott ${st&&st.p>.55?'dark':''}">${st?Math.round(st.p*100):'–'}</text></g>`;
+    } else {
+      const on = selected===p.id;
+      g += `<g data-t="pos" data-v="${p.id}" class="spotbtn"><circle cx="${p.x}" cy="${p.y}" r="10" fill="transparent"/><circle cx="${p.x}" cy="${p.y}" r="7.5" class="spot ${on?'on':''}"/>
+        <text x="${p.x}" y="${p.y+2.3}" text-anchor="middle" class="spott ${on?'dark':''}">${p.kind==='LL'?'LL':p.kind==='3P'?'3':'2'}</text></g>`;
+    }
+  });
+  return `<svg class="poscourt" viewBox="-4 -2 158 106" aria-label="Posições de lançamento">${g}</svg>`;
+}
+
+const playerChips = (act, sel, sub) => activeR().map(p=>`<button class="chip ${sub(p).done?'done':''}" data-t="${act}" data-v="${p.id}" aria-pressed="${sel===p.id}"><b>${p.num}</b><small>${sub(p).txt}</small></button>`).join('');
+const dateField = d => `<label class="hint" style="display:flex;gap:8px;align-items:center" for="tdate">Treino de <input type="date" id="tdate" value="${d}"></label>`;
+const nameOf = sel => sel==='team' ? 'Equipa' : '#'+P[sel].num+' '+short(P[sel]);
+
+function renderTrain(){
+  const tu = UI.train;
+  if (!T.exercises.find(e=>e.id===tu.ex)) tu.ex = T.exercises[0] && T.exercises[0].id;
+  const ex = T.exercises.find(e=>e.id===tu.ex);
+  const exChips = T.exercises.map(e=>`<button class="chip wide" data-t="ex" data-v="${e.id}" aria-pressed="${e.id===tu.ex && !tu.creating}"><b>${e.name}</b><small>${e.type==='series'?`Séries de ${e.per}`:TYPES[e.type]}</small></button>`).join('')
+    + `<button class="chip wide addex" data-t="newex" aria-pressed="${tu.creating}"><b>+ Novo exercício</b><small>dás o nome e o formato</small></button>`;
+
+  let top = '';
+  if (tu.creating){
+    const dr = tu.draft;
+    top = `<div class="newex">
+      <label class="field"><span class="label">Nome</span><input id="exname" type="text" placeholder="ex.: Séries após bloqueio direto" value="${dr.name.replace(/"/g,'&quot;')}"></label>
+      <div class="field"><span class="label">Formato</span><div class="seg big-seg">${Object.entries(TYPES).map(([k,v])=>`<button data-t="dtype" data-v="${k}" aria-pressed="${dr.type===k}">${v}</button>`).join('')}</div></div>
+      ${dr.type==='series'
+        ? `<label class="field"><span class="label">Lançamentos por série</span><input id="exper" type="number" min="1" max="50" value="${dr.per}"></label>
+           <p class="hint">Cada registo é: jogadora + posição + quantos cestos marcou.</p>`
+        : `<label class="field"><span class="label">${dr.type==='goal'?'Partes do desafio':'Objetivos da equipa'} (separados por vírgula)</span><input id="exparts" type="text" placeholder="${dr.type==='goal'?'LL · 10 em 12, 2P · 10 em 13, 3P · 10 em 14':'8 de 2P, 6 de 3P'}" value="${dr.parts.replace(/"/g,'&quot;')}"></label>
+           <p class="hint">${dr.type==='goal'?'Cada jogadora fica com ✓ conseguiu ou ✗ não conseguiu em cada parte.':'A equipa fica com ✓ ou ✗ em cada objetivo, mais uma nota (tempo, tentativas…).'}</p>`}
+      <div style="display:flex;gap:6px"><button class="btn-sm go" data-t="create">Criar exercício</button><button class="btn-sm" data-t="cancelnew">Cancelar</button></div>
+    </div>`;
+  }
+
+  let rec='', prog='';
+  if (ex && !tu.creating){
+    if (ex.type==='series'){ [rec,prog] = seriesViews(ex); }
+    else if (ex.type==='goal'){ [rec,prog] = goalViews(ex); }
+    else { [rec,prog] = teamViews(ex); }
+  }
+
+  $('v-train').innerHTML = `
+    <div class="card"><div class="rowline"><h2>Exercícios de lançamento</h2>${T.sample?'<span class="chip-sample">Dados de exemplo · 6 semanas</span>':''}</div>
+      <div class="chips drillchips">${exChips}</div>${top}</div>
+    ${ex && !tu.creating ? `<div class="trainlayout"><div class="card stack">${rec}</div><div class="stack">${prog}</div></div>` : ''}`;
+}
+
+function seriesViews(ex){
+  const tu = UI.train;
+  const today = T.series.filter(e=>e.ex===ex.id && e.date===tu.date);
+  const chips = playerChips('rp', tu.player, p=>{ const l=today.filter(e=>e.p===p.id); return l.length?{done:true,txt:`${l.length}× · ${pc(sumS(l).p)}`}:{done:false,txt:short(p).split(' ')[1]}; });
+  let nums = '<p class="hint">Escolhe a jogadora e a posição, depois toca no número de cestos.</p>';
+  if (tu.player && tu.pos){
+    let b=''; for(let k=0;k<=ex.per;k++) b+=`<button data-t="snum" data-v="${k}">${k}</button>`;
+    nums = `<div class="spotrow" style="border:0;padding:0"><div class="sh"><span><b>#${P[tu.player].num} ${short(P[tu.player])}</b> · ${PS[tu.pos].label} <span class="hint">(${PS[tu.pos].kind})</span></span><span class="hint">cestos em ${ex.per}</span></div><div class="nums">${b}</div></div>`;
+  }
+  const list = today.slice().reverse().map(e=>`<div class="lr" style="grid-template-columns:34px 1fr auto auto"><span class="ln2">#${P[e.p].num}</span><span>${PS[e.pos].label}</span><span class="ln2">${e.made}/${e.att}</span><button class="del" data-t="sdel" data-v="${e.id}" aria-label="Apagar série">×</button></div>`).join('');
+  const rec = `<div class="rowline" style="margin:0"><h2>Registar</h2>${dateField(tu.date)}</div>
+    <div class="chips">${chips}</div>
+    ${posCourt(tu.pos)}
+    ${nums}
+    <div><div class="label" style="margin-bottom:4px">Séries deste treino · ${today.length}</div>${list||'<p class="hint">Ainda nenhuma.</p>'}</div>`;
+
+  const sel = tu.prog;
+  const all = T.series.filter(e=>e.ex===ex.id);
+  const dates = uniq(all.map(e=>e.date));
+  const byDate = who => dates.map(d=>sumS(all.filter(e=>e.date===d && (who==='team'||e.p===who))));
+  const team = byDate('team'), main = sel==='team'?team:byDate(sel);
+  const done = main.filter(Boolean), last = done[done.length-1];
+  const seriesIds = T.exercises.filter(e=>e.type==='series').map(e=>e.id);
+  const mine = T.series.filter(e=>seriesIds.includes(e.ex) && (sel==='team'||e.p===sel));
+  const posStats = {}; let posRows='';
+  POS.forEach(p=>{
+    const l = mine.filter(e=>e.pos===p.id); const tot=sumS(l); if(!tot) return;
+    posStats[p.id]=tot;
+    const ds = uniq(l.map(e=>e.date)), recentD = ds.slice(-3);
+    const rec3 = sumS(l.filter(e=>recentD.includes(e.date))), before = sumS(l.filter(e=>!recentD.includes(e.date)));
+    posRows += `<tr><td>${p.label}</td><td>${p.kind}</td><td>${tot.m}/${tot.a}</td><td>${pc(tot.p)}</td><td>${pc(rec3&&rec3.p)}</td><td>${rec3&&before?pp(rec3.p-before.p):'–'}</td></tr>`;
+  });
+  const rank = ROSTER.map(p=>{ const v=byDate(p.id), d=v.filter(Boolean); return {p,n:d.length,last:d[d.length-1],avg:avgP(d.slice(-5)),tr:trendOf(v)}; }).filter(x=>x.n).sort((a,b)=>b.avg-a.avg);
+  const name = nameOf(sel);
+  const prog = `<div class="card">
+      <h2>Progresso · ${name}</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v">${pc(last&&last.p)}</div><div class="k">Último treino${last?` (${last.m}/${last.a})`:''}</div></div>
+        <div class="tile"><div class="v">${pc(avgP(done.slice(-5)))}</div><div class="k">Média últimos 5 treinos</div></div>
+        <div class="tile"><div class="v" style="font-size:26px">${pp(trendOf(main))}</div><div class="k">Início → agora</div></div>
+        <div class="tile"><div class="v">${done.reduce((s,x)=>s+x.a,0)}</div><div class="k">Lançamentos neste exercício</div></div>
+      </div>
+      <div class="lg">${sel==='team'?'<span><i></i>Equipa</span>':`<span><i></i>${name}</span><span><i class="ref"></i>Média da equipa</span>`}</div>
+      ${chart(dates.map(date=>({date})), main, sel==='team'?null:team, name)}
+    </div>
+    <div class="card"><h2>Por posição · ${name}</h2><p class="hint" style="margin:-4px 0 10px">Junta todos os exercícios de séries. Percentagem de acerto em cada posição.</p>
+      <div class="posgrid">${posCourt(null,posStats)}
+      <div class="tablewrap"><table><thead><tr><th>Posição</th><th>Tipo</th><th>Conv./Tent.</th><th>%</th><th>Últ. 3 treinos</th><th>Evolução</th></tr></thead><tbody>${posRows||'<tr><td colspan="6">Sem dados.</td></tr>'}</tbody></table></div></div>
+    </div>
+    <div class="card"><h2>Ranking · ${ex.name}</h2><div class="tablewrap"><table>
+      <thead><tr><th>Jogadora</th><th>Treinos</th><th>Último</th><th>Média últ. 5</th><th>Evolução</th></tr></thead>
+      <tbody><tr class="click ${sel==='team'?'on':''}" data-t="pp" data-v="team"><td><span class="nn">—</span>Equipa</td><td>${team.filter(Boolean).length}</td><td>${pc(team.filter(Boolean).slice(-1)[0]?.p)}</td><td>${pc(avgP(team.filter(Boolean).slice(-5)))}</td><td>${pp(trendOf(team))}</td></tr>
+      ${rank.map(x=>`<tr class="click ${sel===x.p.id?'on':''}" data-t="pp" data-v="${x.p.id}"><td><span class="nn">${x.p.num}</span>${x.p.name}</td><td>${x.n}</td><td>${pc(x.last&&x.last.p)}</td><td>${pc(x.avg)}</td><td>${pp(x.tr)}</td></tr>`).join('')}</tbody>
+    </table></div><p class="legend">Toca numa linha para ver essa jogadora. "Evolução" compara os 3 primeiros treinos com os 3 mais recentes, em pontos percentuais (pp).</p></div>`;
+  return [rec, prog];
+}
+
+function goalViews(ex){
+  const tu = UI.train, G = T.goals;
+  const key = (d,p,part) => `${d}|${ex.id}|${p}|${part}`;
+  const rows = activeR().map(p=>`<tr><td><span class="nn">${p.num}</span>${short(p)}</td>${ex.parts.map(pt=>{ const v=G[key(tu.date,p.id,pt.id)];
+      return `<td class="c"><button class="gc ${v===true?'ok':v===false?'ko':''}" data-t="gcell" data-p="${p.id}" data-part="${pt.id}" aria-label="${p.name} · ${pt.label}">${v===true?'✓':v===false?'✗':'·'}</button></td>`; }).join('')}</tr>`).join('');
+  const rec = `<div class="rowline" style="margin:0"><h2>Registar</h2>${dateField(tu.date)}</div>
+    <p class="hint" style="margin:0">Toca uma vez para ✓ conseguiu, outra para ✗ não conseguiu, outra para limpar. Jogadoras sem registo contam como ausentes.</p>
+    <div class="tablewrap"><table class="goalt"><thead><tr><th>Jogadora</th>${ex.parts.map(pt=>`<th class="c">${pt.label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  const dates = uniq(Object.keys(G).filter(k=>k.split('|')[1]===ex.id).map(k=>k.split('|')[0]));
+  const sel = tu.prog;
+  const rate = (who, d, part) => { let m=0,a=0; (who==='team'?ROSTER.map(p=>p.id):[who]).forEach(pid=>(part?[part]:ex.parts.map(x=>x.id)).forEach(pt=>{ const v=G[key(d,pid,pt)]; if(v!==undefined){ a++; if(v) m++; } })); return a?{m,a,p:m/a}:null; };
+  const main = dates.map(d=>rate(sel,d)), team = dates.map(d=>rate('team',d));
+  const name = nameOf(sel);
+  const partTiles = ex.parts.map(pt=>{ const v=dates.map(d=>rate(sel,d,pt.id)); const tot=avgP(v); const rec5=avgP(v.filter(Boolean).slice(-5));
+    return `<div class="tile"><div class="v">${pc(tot)}</div><div class="k">${pt.label}<br>últimos 5: ${pc(rec5)}</div></div>`; }).join('');
+  const strip = (pid, pt) => dates.map(d=>G[key(d,pid,pt)]).filter(v=>v!==undefined).slice(-8).map(v=>`<i class="${v?'ok':'ko'}"></i>`).join('');
+  const pRows = activeR().map(p=>{
+    const cells = ex.parts.map(pt=>{ const vals=dates.map(d=>G[key(d,p.id,pt.id)]).filter(v=>v!==undefined); const ok=vals.filter(Boolean).length;
+      return vals.length ? `<td>${ok}/${vals.length} <span class="hint">${pc(ok/vals.length)}</span><span class="strip">${strip(p.id,pt.id)}</span></td>` : '<td>–</td>'; }).join('');
+    return `<tr class="click ${sel===p.id?'on':''}" data-t="pp" data-v="${p.id}"><td><span class="nn">${p.num}</span>${short(p)}</td>${cells}</tr>`;
+  }).join('');
+  const prog = `<div class="card"><h2>Taxa de sucesso · ${name}</h2>
+      <div class="tiles">${partTiles}</div>
+      <div class="lg">${sel==='team'?'<span><i></i>Equipa · todas as partes</span>':`<span><i></i>${name}</span><span><i class="ref"></i>Equipa</span>`}</div>
+      ${chart(dates.map(date=>({date})), main, sel==='team'?null:team, name)}
+    </div>
+    <div class="card"><h2>Por jogadora</h2><div class="tablewrap"><table>
+      <thead><tr><th>Jogadora</th>${ex.parts.map(pt=>`<th>${pt.label}</th>`).join('')}</tr></thead>
+      <tbody><tr class="click ${sel==='team'?'on':''}" data-t="pp" data-v="team"><td><span class="nn">—</span>Equipa</td>${ex.parts.map(()=>'<td></td>').join('')}</tr>${pRows}</tbody>
+    </table></div><p class="legend">Conseguiu / vezes que fez o desafio. As barrinhas mostram os últimos 8 treinos: verde conseguiu, vermelho não conseguiu.</p></div>`;
+  return [rec, prog];
+}
+
+function teamViews(ex){
+  const tu = UI.train, k = `${tu.date}|${ex.id}`, cur = T.team[k] || {parts:{},note:''};
+  const rec = `<div class="rowline" style="margin:0"><h2>Registar</h2>${dateField(tu.date)}</div>
+    ${ex.parts.map(pt=>{ const v=cur.parts[pt.id]; return `<div class="spotrow"><div class="sh"><span class="flowtitle">${pt.label}</span></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr"><button class="act ok" data-t="tpart" data-part="${pt.id}" data-v="1" aria-pressed="${v===true}"><b>✓ Conseguiram</b></button><button class="act ko" data-t="tpart" data-part="${pt.id}" data-v="0" aria-pressed="${v===false}"><b>✗ Não</b></button></div></div>`; }).join('')}
+    <label class="field"><span class="label">Nota (tempo, tentativas, quem falhou…)</span><input id="tnote" type="text" value="${(cur.note||'').replace(/"/g,'&quot;')}" placeholder="ex.: 4:30, 3.ª tentativa"></label>`;
+  const keys = Object.keys(T.team).filter(x=>x.split('|')[1]===ex.id).sort().reverse();
+  const tiles = ex.parts.map(pt=>{ const v=keys.map(x=>T.team[x].parts[pt.id]).filter(x=>x!==undefined); const ok=v.filter(Boolean).length; const r5=v.slice(0,5); const ok5=r5.filter(Boolean).length;
+    return `<div class="tile"><div class="v">${v.length?`${ok}/${v.length}`:'–'}</div><div class="k">${pt.label} · ${v.length?pc(ok/v.length):'–'}<br>últimos 5: ${r5.length?`${ok5}/${r5.length}`:'–'}</div></div>`; }).join('');
+  const hist = keys.map(x=>{ const t=T.team[x]; return `<tr><td>${fmtDate(x.split('|')[0])}</td>${ex.parts.map(pt=>{ const v=t.parts[pt.id]; return `<td class="c ${v===true?'up':v===false?'down':''}">${v===true?'✓':v===false?'✗':'–'}</td>`; }).join('')}<td style="text-align:left;white-space:normal">${t.note||''}</td></tr>`; }).join('');
+  const prog = `<div class="card"><h2>Histórico · ${ex.name}</h2><div class="tiles" style="margin-bottom:12px">${tiles}</div>
+    <div class="tablewrap"><table><thead><tr><th>Treino</th>${ex.parts.map(pt=>`<th class="c">${pt.label}</th>`).join('')}<th style="text-align:left">Nota</th></tr></thead><tbody>${hist||'<tr><td colspan="9">Ainda sem registos.</td></tr>'}</tbody></table></div></div>`;
+  return [rec, prog];
+}
+
+const vt = $('v-train');
+vt.addEventListener('click', e=>{
+  const b = e.target.closest('[data-t]'); if(!b) return;
+  const tu = UI.train, a = b.dataset.t, v = b.dataset.v;
+  const ex = T.exercises.find(x=>x.id===tu.ex);
+  if (a==='ex'){ tu.ex=v; tu.creating=false; tu.prog='team'; }
+  else if (a==='newex'){ tu.creating=!tu.creating; }
+  else if (a==='cancelnew'){ tu.creating=false; }
+  else if (a==='dtype'){ tu.draft.type=v; }
+  else if (a==='create'){
+    const d=tu.draft, name=d.name.trim();
+    if (!name){ toast('Dá um nome ao exercício'); return; }
+    const nx = {id:'x'+Date.now(), name, type:d.type};
+    if (d.type==='series') nx.per = Math.max(1,Math.min(50,parseInt(d.per)||10));
+    else { nx.parts = d.parts.split(',').map(s=>s.trim()).filter(Boolean).map((label,i)=>({id:'q'+i,label})); if(!nx.parts.length){ toast('Escreve pelo menos uma parte'); return; } }
+    T.exercises.push(nx); saveT(); tu.ex=nx.id; tu.creating=false; tu.prog='team'; tu.draft={name:'',type:'series',per:10,parts:''};
+    toast(`Exercício "${name}" criado`);
+  }
+  else if (a==='rp'){ tu.player = tu.player===v ? null : v; }
+  else if (a==='pos'){ tu.pos = v; }
+  else if (a==='pp'){ tu.prog = v; }
+  else if (a==='snum'){
+    T.series.push({id:'s'+Date.now(), date:tu.date, ex:ex.id, p:tu.player, pos:tu.pos, made:+v, att:ex.per});
+    T.sample=false; saveT(); toast(`#${P[tu.player].num} · ${PS[tu.pos].label}: ${v}/${ex.per} guardado`);
+  }
+  else if (a==='sdel'){ T.series = T.series.filter(x=>x.id!==v); saveT(); }
+  else if (a==='gcell'){
+    const k = `${tu.date}|${ex.id}|${b.dataset.p}|${b.dataset.part}`, cur=T.goals[k];
+    if (cur===undefined) T.goals[k]=true; else if (cur===true) T.goals[k]=false; else delete T.goals[k];
+    T.sample=false; saveT();
+  }
+  else if (a==='tpart'){
+    const k = `${tu.date}|${ex.id}`, cur = T.team[k] = T.team[k] || {parts:{},note:''}, val = v==='1';
+    if (cur.parts[b.dataset.part]===val) delete cur.parts[b.dataset.part]; else cur.parts[b.dataset.part]=val;
+    if (!Object.keys(cur.parts).length && !cur.note) delete T.team[k];
+    T.sample=false; saveT();
+  }
+  else return;
+  render();
+});
+vt.addEventListener('input', e=>{
+  const d = UI.train.draft;
+  if (e.target.id==='exname') d.name = e.target.value;
+  if (e.target.id==='exper') d.per = e.target.value;
+  if (e.target.id==='exparts') d.parts = e.target.value;
+});
+vt.addEventListener('change', e=>{
+  const tu = UI.train;
+  if (e.target.id==='tdate' && e.target.value){ tu.date=e.target.value; render(); }
+  if (e.target.id==='tnote'){ const k=`${tu.date}|${tu.ex}`; const cur=T.team[k]=T.team[k]||{parts:{},note:''}; cur.note=e.target.value; T.sample=false; saveT(); render(); }
+});
+const showTip = e => {
+  const wrap = e.target.closest('.chartwrap'); if(!wrap) return;
+  const hit = e.target.closest('[data-tip]'), tip = wrap.querySelector('.tip'); if(!hit){ tip.hidden=true; return; }
+  tip.textContent = hit.dataset.tip; tip.style.left = hit.dataset.tx+'%'; tip.style.top = hit.dataset.ty+'%'; tip.hidden=false;
+};
+vt.addEventListener('pointerover', showTip);
+vt.addEventListener('pointerdown', showTip);
+vt.addEventListener('pointerleave', ()=>{ const t=vt.querySelector('.tip'); if(t) t.hidden=true; });
+
+/* ---------- atletas: plantel, fichas e treinos realizados ---------- */
+const POSITIONS = ['Base','Base/Extremo','Extremo','Extremo/Poste','Poste'];
+const STATUS = {'Disponível':'good','Condicionada':'warn','Lesionada':'bad','Indisponível':'warn'};
+const WD = ['dom','seg','ter','qua','qui','sex','sáb'];
+UI.atl = {sub:'plantel', sel:'p7', editing:null, confirmDel:false, openDate:null};
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const ageOf = b => { if(!b) return null; const d=new Date(b+'T00:00'), n=new Date(); let a=n.getFullYear()-d.getFullYear(); if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate())) a--; return a; };
+const wdDate = s => { const d=new Date(s+'T00:00'); return `${WD[d.getDay()]}, ${fmtDate(s)}`; };
+const pill = st => `<span class="pill ${STATUS[st]||''}">${esc(st||'Disponível')}</span>`;
+function trainDates(pid){
+  const ds = [];
+  T.series.forEach(e=>{ if(!pid||e.p===pid) ds.push(e.date); });
+  Object.keys(T.goals).forEach(k=>{ const s=k.split('|'); if(!pid||s[2]===pid) ds.push(s[0]); });
+  if (!pid) Object.keys(T.team).forEach(k=>ds.push(k.split('|')[0]));
+  return uniq(ds);
+}
+
+function renderAtl(){
+  const A = UI.atl;
+  const seg = `<div class="rowline" style="margin:0"><div class="seg big-seg"><button data-a="sub" data-v="plantel" aria-pressed="${A.sub==='plantel'}">Plantel e fichas</button><button data-a="sub" data-v="treinos" aria-pressed="${A.sub==='treinos'}">Treinos realizados</button></div></div>`;
+  $('v-atl').innerHTML = seg + (A.sub==='plantel' ? plantelView() : treinosView());
+}
+
+function plantelView(){
+  const A = UI.atl, act = activeR().slice().sort((a,b)=>a.num-b.num), old = ROSTER.filter(p=>p.active===false);
+  if (!A.editing && !P[A.sel]) A.sel = act[0] && act[0].id;
+  const row = p => `<button class="arow ${A.sel===p.id&&!A.editing?'on':''} ${p.active===false?'old':''}" data-a="sel" data-v="${p.id}">
+      <span class="num">${p.num}</span><span style="min-width:0"><span class="nm" style="display:block">${esc(p.name)}</span><span class="sub">${esc(p.pos)}${p.selecao?' · '+esc(p.selecao):''}</span></span>${p.active===false?'<span class="pill">Saiu</span>':pill(p.status)}</button>`;
+  const list = `<div class="card alist">
+      <div class="rowline"><h2>Plantel · ${act.length}</h2><button class="btn-sm go" data-a="new">+ Adicionar atleta</button></div>
+      <div class="stack" style="gap:4px">${act.map(row).join('')}</div>
+      ${old.length?`<div class="label" style="margin:14px 0 6px">Já não estão no plantel</div><div class="stack" style="gap:4px">${old.map(row).join('')}</div>`:''}
+    </div>`;
+  return `<div class="atlayout">${list}<div class="stack">${A.editing ? formView() : fichaView(P[A.sel])}</div></div>`;
+}
+
+function formView(){
+  const A = UI.atl, isNew = A.editing==='new', p = isNew ? {num:'',name:'',pos:'Extremo',status:'Disponível',hand:'Direita'} : P[A.editing];
+  const opt = (arr, v) => arr.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('');
+  return `<div class="card">
+    <h2>${isNew?'Nova atleta':'Editar · #'+p.num+' '+esc(p.name)}</h2>
+    <div class="fform">
+      <label class="field"><span class="label">Número</span><input id="fnum" type="number" min="0" max="99" inputmode="numeric" value="${esc(p.num)}"></label>
+      <label class="field span2"><span class="label">Nome</span><input id="fname" type="text" value="${esc(p.name)}" placeholder="Nome e apelido"></label>
+      <label class="field"><span class="label">Posição</span><select id="fpos">${opt(POSITIONS,p.pos)}</select></label>
+      <label class="field"><span class="label">Estado</span><select id="fstatus">${opt(Object.keys(STATUS),p.status||'Disponível')}</select></label>
+      <label class="field"><span class="label">Mão dominante</span><select id="fhand">${opt(['Direita','Esquerda'],p.hand||'Direita')}</select></label>
+      <label class="field"><span class="label">Data de nascimento</span><input id="fbirth" type="date" value="${esc(p.birth)}"></label>
+      <label class="field"><span class="label">Altura (cm)</span><input id="fheight" type="number" min="140" max="215" inputmode="numeric" value="${esc(p.height)}"></label>
+      <label class="field"><span class="label">Seleção</span><input id="fsel" type="text" value="${esc(p.selecao)}" placeholder="ex.: Seleção Sub20"></label>
+      <label class="field span3"><span class="label">Notas (lesões, objetivos, pontos a trabalhar…)</span><textarea id="fnotes" rows="4">${esc(p.notes)}</textarea></label>
+    </div>
+    <div class="rowline" style="margin:14px 0 0">
+      <span style="display:flex;gap:6px"><button class="btn-sm go" data-a="save">${isNew?'Adicionar ao plantel':'Guardar alterações'}</button><button class="btn-sm" data-a="cancel">Cancelar</button></span>
+      ${isNew?'':`<button class="btn-ghost ${A.confirmDel?'confirm':''}" data-a="remove">${A.confirmDel?'Confirmar: tirar do plantel?':'Tirar do plantel'}</button>`}
+    </div>
+    ${isNew?'':'<p class="legend">Tirar do plantel não apaga nada: as estatísticas antigas ficam guardadas e podes voltar a pô-la no plantel.</p>'}
+  </div>`;
+}
+
+function fichaView(p){
+  if (!p) return `<div class="card"><p class="hint">Escolhe uma atleta.</p></div>`;
+  const age = ageOf(p.birth);
+  const facts = [p.pos, age!=null?`${age} anos`:null, p.height?`${p.height} cm`:null, p.hand?`mão ${p.hand.toLowerCase()}`:null].filter(Boolean).join(' · ');
+  const head = `<div class="card ficha-head">
+      <span class="bignum">${p.num}</span>
+      <div style="min-width:0;flex:1"><div class="rowline" style="margin:0 0 4px;justify-content:flex-start"><h2 style="margin:0">${esc(p.name)}</h2>${p.active===false?'<span class="pill">Saiu do plantel</span>':pill(p.status)}</div>
+        <div class="hint" style="font-size:14px">${esc(facts)}</div>
+        ${p.selecao?`<div style="margin-top:6px"><span class="pill accent">${esc(p.selecao)}</span></div>`:''}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <button class="btn-sm" data-a="edit" data-v="${p.id}">Editar ficha</button>
+        ${p.active===false?`<button class="btn-sm go" data-a="reactivate" data-v="${p.id}">Voltar ao plantel</button>`:''}
+      </div>
+    </div>
+    ${p.notes?`<div class="card"><div class="label" style="margin-bottom:6px">Notas</div><p style="margin:0;white-space:pre-wrap;line-height:1.5;max-width:75ch">${esc(p.notes)}</p></div>`:''}`;
+
+  // treino
+  const seriesIds = T.exercises.filter(e=>e.type==='series').map(e=>e.id);
+  const all = T.series.filter(e=>seriesIds.includes(e.ex));
+  const dates = uniq(all.map(e=>e.date));
+  const mine = dates.map(d=>sumS(all.filter(e=>e.date===d&&e.p===p.id)));
+  const team = dates.map(d=>sumS(all.filter(e=>e.date===d)));
+  const done = mine.filter(Boolean);
+  const tAll = trainDates(), tMine = trainDates(p.id);
+  const posStats = {}; POS.forEach(ps=>{ const s=sumS(all.filter(e=>e.p===p.id&&e.pos===ps.id)); if(s) posStats[ps.id]=s; });
+  const ranked = Object.entries(posStats).filter(([,s])=>s.a>=20).sort((a,b)=>b[1].p-a[1].p);
+  const bestPos = ranked[0], worstPos = ranked[ranked.length-1];
+  const goalBlocks = T.exercises.filter(e=>e.type==='goal').map(ex=>{
+    const keys = Object.keys(T.goals).filter(k=>{ const s=k.split('|'); return s[1]===ex.id && s[2]===p.id; }).sort();
+    if (!keys.length) return '';
+    return `<div class="goalline"><b>${esc(ex.name)}</b>${ex.parts.map(pt=>{ const v=keys.filter(k=>k.endsWith('|'+pt.id)).map(k=>T.goals[k]); const ok=v.filter(Boolean).length;
+      return `<span class="gp"><span class="hint">${esc(pt.label)}</span> <b>${ok}/${v.length}</b> <span class="strip">${v.slice(-8).map(x=>`<i class="${x?'ok':'ko'}"></i>`).join('')}</span></span>`; }).join('')}</div>`;
+  }).join('');
+  const training = `<div class="card">
+      <div class="rowline"><h2>Treino</h2>${T.sample?'<span class="chip-sample">Dados de exemplo</span>':''}</div>
+      <div class="tiles">
+        <div class="tile"><div class="v">${tMine.length}<span class="hint" style="font-size:16px">/${tAll.length}</span></div><div class="k">Treinos com registos</div></div>
+        <div class="tile"><div class="v">${pc(avgP(done.slice(-5)))}</div><div class="k">Séries · últimos 5 treinos</div></div>
+        <div class="tile"><div class="v" style="font-size:26px">${pp(trendOf(mine))}</div><div class="k">Séries · início → agora</div></div>
+        <div class="tile"><div class="v">${done.reduce((s,x)=>s+x.a,0)}</div><div class="k">Lançamentos em séries</div></div>
+      </div>
+      <div class="lg"><span><i></i>#${p.num} ${esc(short(p))}</span><span><i class="ref"></i>Média da equipa</span></div>
+      ${chart(dates.map(date=>({date})), mine, team, '#'+p.num+' '+short(p))}
+      <div class="posgrid" style="margin-top:12px">
+        <div><div class="label" style="margin-bottom:6px">Acerto por posição (todas as séries)</div>${posCourt(null,posStats)}</div>
+        ${bestPos&&worstPos&&bestPos!==worstPos?`<ul class="insights"><li class="good">Melhor posição: ${PS[bestPos[0]].label} (${PS[bestPos[0]].kind}), ${bestPos[1].m}/${bestPos[1].a} · ${pc(bestPos[1].p)}.</li><li class="warn">A trabalhar: ${PS[worstPos[0]].label} (${PS[worstPos[0]].kind}), ${worstPos[1].m}/${worstPos[1].a} · ${pc(worstPos[1].p)}.</li></ul>`:''}
+      </div>
+      ${goalBlocks?`<div class="label" style="margin:14px 0 6px">Desafios</div>${goalBlocks}`:''}
+    </div>`;
+
+  // jogo
+  const s = compute(S.events).pl[p.id];
+  const played = S.events.some(e=>e.on&&e.on.includes(p.id));
+  const game = `<div class="card"><div class="rowline"><h2>Jogo</h2><span class="hint">Jogo atual · ${esc(S.comp||'Sub22')}</span></div>
+    ${played ? `<div class="tiles">
+      <div class="tile"><div class="v">${s.pts}</div><div class="k">Pontos</div></div>
+      <div class="tile"><div class="v">${s.fgm}/${s.fga}</div><div class="k">Lanç. campo · ${pc(s.fga?s.fgm/s.fga:null)}</div></div>
+      <div class="tile"><div class="v">${s.tpm}/${s.tpa}</div><div class="k">Triplos · ${pc(s.tpa?s.tpm/s.tpa:null)}</div></div>
+      <div class="tile"><div class="v">${s.ftm}/${s.fta}</div><div class="k">Lances livres · ${pc(s.fta?s.ftm/s.fta:null)}</div></div>
+      <div class="tile"><div class="v">${s.orb+s.drb}</div><div class="k">Ressaltos (${s.orb} of.)</div></div>
+      <div class="tile"><div class="v">${s.ast}</div><div class="k">Assistências</div></div>
+      <div class="tile"><div class="v">${s.tov}</div><div class="k">Perdas de bola</div></div>
+      <div class="tile"><div class="v ${pmCls(s.pm)}">${sgn(s.pm)}</div><div class="k">+/− em campo</div></div>
+      <div class="tile"><div class="v">${efg(s)}</div><div class="k">eFG%</div></div>
+    </div><p class="legend">Na app a sério aparecem aqui todos os jogos da época, com médias e evolução jogo a jogo.</p>`
+    : '<p class="hint">Ainda não jogou no jogo atual.</p>'}
+  </div>`;
+  return head + training + game;
+}
+
+function treinosView(){
+  const A = UI.atl, dates = trainDates().slice().reverse();
+  const exName = id => { const e=T.exercises.find(x=>x.id===id); return e?e.name:'?'; };
+  const athletesOn = d => uniq([...T.series.filter(e=>e.date===d).map(e=>e.p), ...Object.keys(T.goals).filter(k=>k.startsWith(d+'|')).map(k=>k.split('|')[2])]);
+  const exOn = d => uniq([...T.series.filter(e=>e.date===d).map(e=>e.ex), ...Object.keys(T.goals).filter(k=>k.startsWith(d+'|')).map(k=>k.split('|')[1]), ...Object.keys(T.team).filter(k=>k.startsWith(d+'|')).map(k=>k.split('|')[1])]);
+  const last5 = dates.slice(0,5);
+  const s5 = sumS(T.series.filter(e=>last5.includes(e.date)));
+  const avgAth = dates.length ? Math.round(dates.reduce((s,d)=>s+athletesOn(d).length,0)/dates.length) : 0;
+  const rows = dates.map(d=>{
+    const ex = exOn(d), ath = athletesOn(d), ss = sumS(T.series.filter(e=>e.date===d)), open = A.openDate===d;
+    let detail = '';
+    if (open){
+      const exs = ex.map(id=>T.exercises.find(x=>x.id===id)).filter(Boolean);
+      const teamLines = exs.filter(e=>e.type==='team').map(e=>{ const t=T.team[`${d}|${e.id}`]; return `<div class="goalline"><b>${esc(e.name)}</b>${e.parts.map(pt=>`<span class="gp">${esc(pt.label)} <b class="${t.parts[pt.id]===true?'up':t.parts[pt.id]===false?'down':''}">${t.parts[pt.id]===true?'✓':t.parts[pt.id]===false?'✗':'–'}</b></span>`).join('')}${t.note?`<span class="hint">${esc(t.note)}</span>`:''}<button class="btn-sm" data-a="goto" data-ex="${e.id}" data-date="${d}">Editar</button></div>`; }).join('');
+      const indiv = exs.filter(e=>e.type!=='team');
+      const tbl = indiv.length ? `<div class="tablewrap"><table><thead><tr><th>Atleta</th>${indiv.map(e=>`<th>${esc(e.name)} <button class="btn-sm" data-a="goto" data-ex="${e.id}" data-date="${d}">Editar</button></th>`).join('')}</tr></thead><tbody>
+        ${ath.map(pid=>P[pid]).filter(Boolean).sort((a,b)=>a.num-b.num).map(p=>`<tr class="click" data-a="open-ficha" data-v="${p.id}"><td><span class="nn">${p.num}</span>${esc(short(p))}</td>${indiv.map(e=>{
+          if (e.type==='series'){ const l=T.series.filter(x=>x.date===d&&x.ex===e.id&&x.p===p.id); const t=sumS(l); return `<td>${t?`${t.m}/${t.a} <span class="hint">${pc(t.p)} · ${l.length}×</span>`:'–'}</td>`; }
+          return `<td>${e.parts.map(pt=>{ const v=T.goals[`${d}|${e.id}|${p.id}|${pt.id}`]; return `<span class="${v===true?'up':v===false?'down':'hint'}" title="${esc(pt.label)}">${v===true?'✓':v===false?'✗':'·'}</span>`; }).join(' ')}</td>`;
+        }).join('')}</tr>`).join('')}
+      </tbody></table></div>` : '';
+      detail = `<tr class="detail"><td colspan="5"><div class="stack" style="gap:8px;padding:6px 0 10px">${teamLines}${tbl}</div></td></tr>`;
+    }
+    return `<tr class="click ${open?'on':''}" data-a="openday" data-v="${d}"><td><b>${wdDate(d)}</b></td><td style="text-align:left;white-space:normal">${ex.map(id=>`<span class="tag">${esc(exName(id))}</span>`).join(' ')}</td><td>${ath.length}</td><td>${ss?`${ss.m}/${ss.a}`:'–'}</td><td>${ss?pc(ss.p):'–'} <span class="hint">${open?'▴':'▾'}</span></td></tr>${detail}`;
+  }).join('');
+  return `<div class="card"><div class="rowline"><h2>Treinos realizados</h2>${T.sample?'<span class="chip-sample">Dados de exemplo</span>':''}</div>
+      <div class="tiles">
+        <div class="tile"><div class="v">${dates.length}</div><div class="k">Treinos com registos</div></div>
+        <div class="tile"><div class="v">${avgAth}</div><div class="k">Atletas por treino (média)</div></div>
+        <div class="tile"><div class="v">${pc(s5&&s5.p)}</div><div class="k">Séries · últimos 5 treinos</div></div>
+        <div class="tile"><div class="v">${T.series.reduce((s,e)=>s+e.att,0)}</div><div class="k">Lançamentos registados</div></div>
+      </div></div>
+    <div class="card"><div class="tablewrap"><table class="days">
+      <thead><tr><th>Treino</th><th style="text-align:left">Exercícios</th><th>Atletas</th><th>Séries</th><th>%</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5">Ainda sem treinos registados.</td></tr>'}</tbody></table></div>
+      <p class="legend">Toca num treino para ver o detalhe por atleta. "Editar" abre esse exercício e essa data no separador Treino. Toca numa atleta para abrir a ficha dela.</p></div>`;
+}
+
+const va = $('v-atl');
+va.addEventListener('click', e=>{
+  const b = e.target.closest('[data-a]'); if(!b) return;
+  const A = UI.atl, a = b.dataset.a, v = b.dataset.v;
+  if (a==='sub'){ A.sub=v; }
+  else if (a==='sel'){ A.sel=v; A.editing=null; A.confirmDel=false; }
+  else if (a==='new'){ A.editing='new'; A.confirmDel=false; }
+  else if (a==='edit'){ A.editing=v; A.confirmDel=false; }
+  else if (a==='cancel'){ A.editing=null; A.confirmDel=false; }
+  else if (a==='save'){
+    const num = parseInt($('fnum').value,10), name = $('fname').value.trim().replace(/\s+/g,' ');
+    if (!name){ toast('Escreve o nome da atleta'); return; }
+    if (isNaN(num) || num<0 || num>99){ toast('O número tem de estar entre 0 e 99'); return; }
+    const clash = activeR().find(p=>p.num===num && p.id!==A.editing);
+    if (clash){ toast(`O número ${num} já é da ${clash.name}`); return; }
+    const data = {num, name, pos:$('fpos').value, status:$('fstatus').value, hand:$('fhand').value, birth:$('fbirth').value, height:parseInt($('fheight').value,10)||null, selecao:$('fsel').value.trim(), notes:$('fnotes').value.trim()};
+    if (A.editing==='new'){ const p=Object.assign({id:'p'+Date.now(), active:true}, data); ROSTER.push(p); A.sel=p.id; toast(`#${num} ${name} adicionada ao plantel`); }
+    else { Object.assign(P[A.editing], data); A.sel=A.editing; toast('Ficha guardada'); }
+    refreshP(); saveR(); A.editing=null;
+  }
+  else if (a==='remove'){
+    const id = A.editing;
+    if (S.onCourt.includes(id)){ toast('Está em campo no jogo atual. Faz a substituição primeiro.'); return; }
+    if (!A.confirmDel){ A.confirmDel=true; render(); setTimeout(()=>{ if(A.confirmDel){ A.confirmDel=false; render(); } },3000); return; }
+    P[id].active=false; saveR(); A.editing=null; A.confirmDel=false; A.sel=id; toast(`${P[id].name} saiu do plantel`);
+  }
+  else if (a==='reactivate'){
+    const p = P[v], clash = activeR().find(x=>x.num===p.num);
+    if (clash){ toast(`O número ${p.num} já é da ${clash.name}. Muda o número primeiro.`); A.editing=v; }
+    else { p.active=true; saveR(); toast(`${p.name} voltou ao plantel`); }
+  }
+  else if (a==='openday'){ A.openDate = A.openDate===v ? null : v; }
+  else if (a==='goto'){ e.stopPropagation(); UI.view='train'; Object.assign(UI.train,{ex:b.dataset.ex, date:b.dataset.date, creating:false, player:null}); }
+  else if (a==='open-ficha'){ A.sub='plantel'; A.sel=v; A.editing=null; }
+  else return;
+  render();
+});
+va.addEventListener('pointerover', showTip);
+va.addEventListener('pointerdown', showTip);
+
+$('comp').addEventListener('click', e=>{ const b=e.target.closest('[data-comp]'); if(!b) return; S.comp=b.dataset.comp; save(); render(); });
+
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,1800); }
+const markReal = () => { if (S.sample) { S.sample=false; } };
+
+/* ---------- events ---------- */
+$('tabs').addEventListener('click', e=>{
+  const t = e.target.closest('[data-view]'); if (t){ UI.view=t.dataset.view; render(); return; }
+  if (e.target.closest('#newGame')){
+    if (!UI.confirmNew){ UI.confirmNew=true; render(); setTimeout(()=>{UI.confirmNew=false; render();},3000); return; }
+    S = {events:[],q:1,clock:600,onCourt:STARTERS.slice(),sample:false};
+    UI = Object.assign(UI,{selected:null,pending:null,subMode:false,running:false,confirmNew:false,view:'live'});
+    save(); render(); toast('Novo jogo pronto. Cinco inicial carregado.');
+  }
+});
+$('qsel').addEventListener('click', e=>{
+  const b = e.target.closest('[data-q]'); if(!b) return;
+  S.q = +b.dataset.q; S.clock = S.q>4 ? 300 : 600; UI.running=false; save(); render();
+});
+$('clock').addEventListener('click', ()=>{ UI.running=!UI.running; render(); });
+setInterval(()=>{ if(!UI.running) return; if(S.clock>0){ S.clock--; save(); $('clockTxt').textContent=fmtClock(S.clock);} if(S.clock===0){ UI.running=false; render(); toast('Fim do período'); } }, 1000);
+
+$('roster').addEventListener('click', e=>{
+  const b = e.target.closest('[data-id]'); if(!b) return; const id=b.dataset.id;
+  if (UI.subMode){
+    const i = UI.draft.indexOf(id);
+    if (i>=0) UI.draft.splice(i,1); else if (UI.draft.length<5) UI.draft.push(id); else toast('Já tens 5 em campo — tira uma primeiro');
+    render(); return;
+  }
+  if (!S.onCourt.includes(id)){ toast('Está no banco. Usa "Substituir" para a pôr em campo.'); return; }
+  UI.selected = UI.selected===id ? null : id;
+  if (UI.pending && UI.pending.step==='result') UI.pending.shooter = id;
+  render();
+});
+$('subCtl').addEventListener('click', e=>{
+  const b = e.target.closest('[data-sub]'); if(!b) return;
+  const a = b.dataset.sub;
+  if (a==='start'){ UI.subMode=true; UI.draft=S.onCourt.slice(); UI.pending=null; }
+  else if (a==='cancel'){ UI.subMode=false; }
+  else if (a==='ok' && UI.draft.length===5){
+    const changed = UI.draft.some(i=>!S.onCourt.includes(i));
+    if (changed){ markReal(); push({t:'sub',prev:S.onCourt.slice(),on:UI.draft.slice()}); S.onCourt=UI.draft.slice(); save(); toast('Substituição registada'); }
+    if (!S.onCourt.includes(UI.selected)) UI.selected=null;
+    UI.subMode=false;
+  }
+  render();
+});
+$('court').addEventListener('pointerup', e=>{
+  if (UI.subMode){ toast('Termina a substituição primeiro'); return; }
+  const svg = $('court'), pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const x = Math.max(1,Math.min(149,p.x)), y = Math.max(1,Math.min(139,p.y));
+  const z = zone(x,y);
+  UI.pending = {x:+x.toFixed(1), y:+y.toFixed(1), z, three:z==='c3'||z==='a3', step:'result', shooter: S.onCourt.includes(UI.selected)?UI.selected:null};
+  render();
+});
+document.querySelector('.panel').addEventListener('click', e=>{
+  const b = e.target.closest('[data-act]'); if(!b) return;
+  const a = b.dataset.act, v = b.dataset.v, pn = UI.pending;
+  if (a==='undo'){
+    const last = S.events.pop(); if(!last){ toast('Nada para desfazer'); return; }
+    if (last.t==='sub') S.onCourt = last.prev.slice();
+    UI.pending=null; save(); render(); toast('Último registo desfeito'); return;
+  }
+  if (a==='del'){ S.events = S.events.filter(x=>x.id!==v); save(); render(); return; }
+  if (a==='cancel'){ UI.pending=null; render(); return; }
+  if (a==='shooter'){ pn.shooter=v; UI.selected=v; render(); return; }
+  if (a==='made' || a==='miss'){
+    if (!pn.shooter){ toast('Escolhe quem lançou'); return; }
+    markReal();
+    push({t:'shot',p:pn.shooter,x:pn.x,y:pn.y,three:pn.three,made:a==='made'});
+    pn.step = a==='made' ? 'assist' : 'rebound'; render(); return;
+  }
+  if (a==='assist'){ if (v) push({t:'ast',p:v}); UI.pending=null; render(); return; }
+  if (a==='reb'){ if (v && v!=='opp') push({t:'orb',p:v}); UI.pending=null; render(); return; }
+  if (a==='opp'){ markReal(); push({t:'opp',pts:+v}); render(); return; }
+  if (a==='oppf'){ markReal(); push({t:'oppf'}); render(); return; }
+  if (a==='stat'){
+    if (!UI.selected || !S.onCourt.includes(UI.selected)){ toast('Escolhe primeiro a jogadora no plantel'); return; }
+    markReal();
+    if (v==='ft1' || v==='ft0') push({t:'ft',p:UI.selected,made:v==='ft1'});
+    else push({t:v,p:UI.selected});
+    render(); return;
+  }
+});
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-shot]'); if(!b) return;
+  UI.shotFilter = b.dataset.shot; render();
+});
+
+render();
+})();
+</script>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mesa de Jogo</title>
+  <meta name="description" content="Estatísticas de jogo e treino de basket.">
+  <meta name="theme-color" content="#0F1216">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mesa de Jogo">
+</head>
+<body>
+<div class="app">
+  <header class="board" hidden>
+    <div class="team us">
+      <span class="score" id="sUs">0</span>
+      <div class="tfouls"><span class="tname" id="usName">Nós</span><div class="pips" id="fUs"></div><span id="bUs"></span></div>
+    </div>
+    <div class="mid">
+      <div class="qsel" id="qsel" role="group" aria-label="Período"></div>
+      <button class="clock" id="clock" aria-label="Iniciar ou parar relógio"><span class="dot"></span><span id="clockTxt">10:00</span></button>
+    </div>
+    <div class="team them">
+      <div class="tfouls" style="align-items:flex-end"><span class="tname" id="themName">Adversário</span><div class="pips" id="fThem"></div><span id="bThem"></span></div>
+      <span class="score" id="sThem">0</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab" role="tab" data-view="games">Jogos</button>
+    <span class="sep"></span>
+    <button class="tab" role="tab" data-view="live">Registo</button>
+    <button class="tab" role="tab" data-view="box">Ficha de jogo</button>
+    <button class="tab" role="tab" data-view="shots">Lançamentos</button>
+    <button class="tab" role="tab" data-view="lineups">Quintetos</button>
+    <span class="sep"></span>
+    <button class="tab" role="tab" data-view="train">Treino</button>
+    <button class="tab" role="tab" data-view="atl">Atletas</button>
+    <span class="spacer"></span>
+    <span class="chip-sample" id="sampleChip" hidden>Dados de exemplo</span>
+    <span class="gamechip" id="gameChip"></span>
+  </nav>
+
+  <main>
+    <section class="view" id="v-games" hidden></section>
+    <section class="live" id="v-live" hidden>
+      <aside class="col">
+        <div class="colhead"><span class="label">Plantel</span><span id="subCtl"></span></div>
+        <div class="rlist" id="roster"></div>
+      </aside>
+      <div class="col courtcol">
+        <div class="colhead"><span class="label">Campo</span><span class="hint" id="courtHint">Toca onde foi o lançamento</span></div>
+        <div class="courtbox"><svg id="court" viewBox="-2 -2 154 144" aria-label="Meio-campo: toca para registar um lançamento"></svg></div>
+      </div>
+      <aside class="col panel">
+        <div class="colhead"><span class="label">Ações</span><button class="btn-sm" data-act="undo">↶ Desfazer</button></div>
+        <div class="body" id="panel"></div>
+        <div class="divider"></div>
+        <div class="colhead"><span class="label">Últimos registos</span></div>
+        <div class="log" id="log"></div>
+      </aside>
+    </section>
+    <section class="view" id="v-box" hidden></section>
+    <section class="view" id="v-shots" hidden></section>
+    <section class="view" id="v-lineups" hidden></section>
+    <section class="view" id="v-train" hidden></section>
+    <section class="view" id="v-atl" hidden></section>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
