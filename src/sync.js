@@ -8,7 +8,7 @@ import { db, app, changes, refreshP, saveAll } from './state.js';
  * Guarda a impressão digital (hash) do último estado sincronizado de cada documento.
  * Diferente localmente = alteração local por enviar; diferente no servidor = alteração remota por aplicar.
  * Se os dois mudaram, ganha a alteração mais recente (hora local da gravação vs hora do servidor).
- * No primeiro acerto de um dispositivo, a nuvem ganha.
+ * No primeiro acerto de um dispositivo, fica a versão com mais conteúdo.
  */
 
 export const configured = !!(SUPABASE_URL && SUPABASE_KEY);
@@ -80,7 +80,10 @@ export async function syncNow() {
       const remoteH = r.deleted ? 'deleted' : hash(r.data);
       const cur = local[r.key], curH = cur === undefined ? undefined : hash(cur), synced = S.hashes[r.key];
       if (curH === remoteH || (cur === undefined && remoteH === 'deleted')) { S.hashes[r.key] = remoteH; continue; }
-      if (!firstSync) {
+      if (firstSync) {
+        // primeiro acerto deste dispositivo: fica a versão com mais conteúdo (um plantel vazio nunca apaga um cheio)
+        if (cur !== undefined && !r.deleted && stable(cur).length > stable(r.data).length) continue;
+      } else {
         const localChanged = cur === undefined ? (synced && synced !== 'deleted') : curH !== synced;
         const remoteChanged = remoteH !== synced;
         if (localChanged && !remoteChanged) continue;
