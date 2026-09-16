@@ -54,6 +54,20 @@ export function toast(msg) {
   clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2000);
 }
 
+/* No iPad abre a folha de partilha (Ficheiros, WhatsApp, Mail); no PC faz download. */
+export function shareFile(blob, name, doneMsg) {
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(() => {});
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  if (doneMsg) toast(doneMsg);
+}
+
 /* confirmação com dois toques, sem diálogos do sistema */
 const pending = {};
 export function confirmTap(key, rerender) {

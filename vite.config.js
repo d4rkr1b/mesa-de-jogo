@@ -23,7 +23,9 @@ export default defineConfig({
         scope: base
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}']
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // partes do jsPDF que o relatório não usa (exportação de HTML)
+        globIgnores: ['**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js']
       }
     })
   ]

@@ -1,5 +1,5 @@
 import { db, P, UI, app, save, refreshP, activeR, short, replaceAll, flush } from '../state.js';
-import { $, esc, uid, toast, fmtDate, wdDate, ageOf, pc, pp, avgP, trendOf, uniq, sumS, sgn, pmCls, today, confirmTap, isConfirming } from '../util.js';
+import { $, esc, uid, toast, fmtDate, wdDate, ageOf, pc, pp, avgP, trendOf, uniq, sumS, sgn, pmCls, today, confirmTap, isConfirming, shareFile } from '../util.js';
 import { POS, PS, posCourt } from '../court.js';
 import { chart, attachTips } from '../chart.js';
 import { compute, efg, playedIn, blank } from '../stats.js';
@@ -305,16 +305,5 @@ export function init() {
 function exportBackup() {
   const data = { app: 'mesa-de-jogo', version: 1, exportedAt: new Date().toISOString(), roster: db.roster, games: db.games, training: db.training, meta: db.meta };
   const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
-  const name = `mesa-de-jogo-${today()}.json`;
-  const file = new File([blob], name, { type: 'application/json' });
-  // No iPad, a folha de partilha deixa guardar em Ficheiros/iCloud; no PC faz download.
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: name }).catch(() => {});
-    return;
-  }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast('Cópia exportada');
+  shareFile(blob, `mesa-de-jogo-${today()}.json`, 'Cópia exportada');
 }

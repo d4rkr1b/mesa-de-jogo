@@ -1,5 +1,9 @@
 import { P, UI, app, game, db, surname } from '../state.js';
-import { $, pct, sgn, pmCls } from '../util.js';
+import { $, esc, pct, sgn, pmCls, toast, shareFile } from '../util.js';
+
+/* O gerador de PDF é carregado à parte e antecipadamente: no iPad, a partilha tem de acontecer logo a seguir ao toque. */
+let reportMod = null;
+const preloadReport = () => { if (!reportMod) import('../report.js').then(m => { reportMod = m; }).catch(() => {}); };
 import { zone, ZONES, courtLines, mark } from '../court.js';
 import { efg, ts, poss, insights, playedIn } from '../stats.js';
 
@@ -12,8 +16,9 @@ export function renderBox(st) {
     return row(`<span class="nn">${p.num}</span>${p.name}`, s, false);
   }).join('');
   const ins = insights(st);
+  preloadReport();
   $('v-box').innerHTML = `
-    <div class="card"><h2>Resumo · ${g.opponent ? 'vs ' + g.opponent : 'Jogo'}</h2><div class="tiles">
+    <div class="card"><div class="rowline"><h2 style="margin:0">Resumo · vs ${esc(g.opponent)}</h2><button class="btn-sm go" data-report="pdf">Relatório PDF</button></div><div class="tiles">
       <div class="tile"><div class="v">${t.pts}–${st.opp}</div><div class="k">Resultado</div></div>
       <div class="tile"><div class="v">${efg(t)}</div><div class="k">eFG% (lançamento efetivo)</div></div>
       <div class="tile"><div class="v">${ts(t)}</div><div class="k">TS% (eficiência real)</div></div>
@@ -66,6 +71,13 @@ export function renderLineups(st) {
 }
 
 export function init() {
+  $('v-box').addEventListener('click', e => {
+    if (!e.target.closest('[data-report]')) return;
+    if (!reportMod) { preloadReport(); toast('A preparar o relatório… toca outra vez daqui a um segundo.'); return; }
+    const g = game(); if (!g) return;
+    const { blob, name } = reportMod.buildReport(g);
+    shareFile(blob, name, 'Relatório descarregado');
+  });
   $('v-shots').addEventListener('click', e => {
     const b = e.target.closest('[data-shot]'); if (!b) return;
     UI.shotFilter = b.dataset.shot; app.render();
